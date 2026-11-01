@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { flagshipManifest } from './flagship';
-import { nicknameText, parseClientMessage, parseServerMessage } from './messages';
+import {
+  nicknameText,
+  parseClientMessage,
+  parseHallsResponse,
+  parseServerMessage,
+} from './messages';
 
 const MAX_BYTES = 1024;
 const parse = (value: unknown) => parseClientMessage(JSON.stringify(value), MAX_BYTES);
@@ -69,4 +74,40 @@ describe('nicknameText', () => {
       nicknameText(flagshipManifest.nicknames, { adjectiveId: 'zzz', nounId: 'lotus' }, 'en'),
     ).toBe('zzz Lotus');
   });
+});
+
+describe('refusal messages', () => {
+  it('accepts a hall_full error with the next hall, or none', () => {
+    const withNext = { type: 'error', code: 'hall_full', nextHall: 3 };
+    const none = { type: 'error', code: 'all_halls_full', nextHall: null };
+    expect(parseServerMessage(JSON.stringify(withNext)).ok).toBe(true);
+    expect(parseServerMessage(JSON.stringify(none)).ok).toBe(true);
+    expect(parseServerMessage(JSON.stringify({ type: 'error', code: 'hall_full' })).ok).toBe(true);
+  });
+
+  it('refuses a next hall that is not a positive whole number', () => {
+    const bad = { type: 'error', code: 'hall_full', nextHall: 0 };
+    expect(parseServerMessage(JSON.stringify(bad)).ok).toBe(false);
+  });
+});
+
+describe('parseHallsResponse', () => {
+  const ok = {
+    halls: [{ hall: 1, count: 50, full: true }],
+    suggestedHall: 2,
+    hallCount: 20,
+    maxPlayers: 50,
+  };
+
+  it('accepts a well-formed list, including no suggestion', () => {
+    expect(parseHallsResponse(ok)).toEqual(ok);
+    expect(parseHallsResponse({ ...ok, suggestedHall: null })?.suggestedHall).toBeNull();
+  });
+
+  it.each([[null], ['text'], [{}], [{ ...ok, halls: [{ hall: 0, count: 1, full: false }] }]])(
+    'returns null for %j',
+    (raw) => {
+      expect(parseHallsResponse(raw)).toBeNull();
+    },
+  );
 });

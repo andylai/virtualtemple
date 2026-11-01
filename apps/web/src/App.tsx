@@ -1,8 +1,9 @@
 import { flagshipManifest } from '@temple/shared/flagship';
 import type { Point } from '@temple/shared';
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLanguage, useT } from './i18n/I18nProvider';
-import { createHallClient, hallFromAddress } from './net/hallClient';
+import { createHallClient, requestedHallFromAddress } from './net/hallClient';
+import { useHallActions } from './net/useHallActions';
 import { buildHallLayout } from './scene/hallLayout';
 import { HallPeople } from './scene/HallPeople';
 import { HallScene } from './scene/HallScene';
@@ -11,6 +12,7 @@ import { EnterOverlay } from './ui/EnterOverlay';
 import { FpsCounter } from './ui/FpsCounter';
 import { HallStatus } from './ui/HallStatus';
 import { Hud } from './ui/Hud';
+import { Toolbar } from './ui/Toolbar';
 import { Overlay } from './ui/Overlay';
 import { isWebGlAvailable } from './webgl';
 
@@ -22,15 +24,14 @@ export function App() {
   const hasWebGl = useMemo(isWebGlAvailable, []);
   const layout = useMemo(() => buildHallLayout(flagshipManifest.hall), []);
   const [client] = useState(() =>
-    createHallClient(hallFromAddress(window.location.search), language),
+    createHallClient(language, requestedHallFromAddress(window.location.search)),
   );
   const state = useSyncExternalStore(client.store.subscribe, client.store.getState);
   const walkTarget = useRef<Point | null>(null);
   const [sceneReady, setSceneReady] = useState(false);
   const [entered, setEntered] = useState(false);
 
-  useEffect(() => () => client.connection.close(), [client]);
-  const join = useCallback(() => client.connection.connect(), [client]);
+  const { join, switchHall, clearNotice } = useHallActions(client);
   const enter = useCallback(() => {
     setEntered(true);
     join();
@@ -61,6 +62,7 @@ export function App() {
         <EnterOverlay sceneReady={sceneReady} onEnter={enter} />
       )}
       <Hud state={state} />
+      <Toolbar state={state} onPickHall={switchHall} onNoticeShown={clearNotice} />
       {flags.debug && <FpsCounter detail={`${flags.stress} stand-in avatars`} />}
     </>
   );

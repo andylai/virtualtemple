@@ -1,6 +1,13 @@
-import { CORRELATION_HEADER, directoryName, hallRoomName, parseHallNumber } from '@temple/shared';
+import {
+  CORRELATION_HEADER,
+  hallRoomName,
+  parseHallNumber,
+  type HallsResponse,
+} from '@temple/shared';
+import { suggestHall, visibleHalls } from '@temple/room-logic';
 import { routePartykitRequest } from 'partyserver';
 import { configFor } from './config';
+import { readHallCounts } from './directoryClient';
 import { Telemetry } from './telemetry';
 
 export { HallDirectory } from './HallDirectory';
@@ -43,9 +50,41 @@ async function handleSocket(request: Request, env: Env): Promise<Response> {
   return response ?? new Response('Not found', { status: 404 });
 }
 
-async function handleHalls(env: Env): Promise<Response> {
-  const directory = env.HallDirectory.getByName(directoryName(env.TEMPLE_SLUG));
-  return Response.json(await directory.list());
+/** Lets the page, if served from another allowed origin, read the answer. */
+function corsHeaders(request: Request, env: Env): Record<string, string> {
+  const origin = request.headers.get('Origin');
+  return origin !== null && allowedOrigins(env).has(origin)
+    ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' }
+    : {};
+}
+
+/**
+ * Answers `GET /api/halls`: the halls to list, and which hall a new visitor should join.
+ * When the directory cannot be reached the answer is 503 and the browser tries halls in order.
+ */
+async function handleHalls(request: Request, env: Env): Promise<Response> {
+  const headers = { 'Cache-Control': 'no-store', ...corsHeaders(request, env) };
+  const { count, maxPlayers, suggestSpread } = configFor(env).hall;
+  try {
+    const counts = await readHallCounts(env, Date.now());
+    const body: HallsResponse = {
+      halls: visibleHalls(counts, count, maxPlayers),
+      suggestedHall: suggestHall(counts, {
+        hallCount: count,
+        maxPlayers,
+        spread: suggestSpread,
+        random: Math.random,
+      }),
+      hallCount: count,
+      maxPlayers,
+    };
+    return Response.json(body, { headers });
+  } catch {
+    new Telemetry({ temple_id: env.TEMPLE_SLUG }).count('directory_unavailable', {
+      during: 'list',
+    });
+    return Response.json({ error: 'directory_unavailable' }, { status: 503, headers });
+  }
 }
 
 export default {
@@ -55,7 +94,7 @@ export default {
       return new Response('ok');
     }
     if (pathname === '/api/halls' && request.method === 'GET') {
-      return handleHalls(env);
+      return handleHalls(request, env);
     }
     if (pathname === '/ws') {
       return handleSocket(request, env);

@@ -11,9 +11,16 @@ import {
   type TempleConfig,
   type TempleManifest,
 } from '@temple/shared';
-import { PlayerRegistry, TokenBucket, type Player } from '@temple/room-logic';
+import {
+  PlayerRegistry,
+  TokenBucket,
+  reportDelayMs,
+  suggestHall,
+  type Player,
+} from '@temple/room-logic';
 import { Server, type Connection, type ConnectionContext, type WSMessage } from 'partyserver';
 import { configFor } from './config';
+import { readHallCounts } from './directoryClient';
 import { manifestFor } from './manifests';
 import { Telemetry } from './telemetry';
 
@@ -74,6 +81,8 @@ export class TempleRoom extends Server<Env> {
   private readonly limiters = new Map<string, TokenBucket>();
   private readonly strikes = new Map<string, { count: number; lastAtMs: number }>();
   private readonly lastSeenMs = new Map<string, number>();
+  private lastReportAtMs: number | null = null;
+  private reportTimer: ReturnType<typeof setTimeout> | null = null;
   private tickNumber = 0;
   private tickTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -215,8 +224,9 @@ export class TempleRoom extends Server<Env> {
     }
     const remainingGraces = await this.dropExpiredGraces(nowMs);
     this.telemetry.event('sweep', { remaining_graces: remainingGraces });
+    this.sendHeartbeat(nowMs);
     if (remainingGraces > 0 || [...this.getConnections()].length > 0) {
-      await this.ctx.storage.setAlarm(nowMs + this.config.hall.sweepSec * MS_PER_SECOND);
+      await this.ctx.storage.setAlarm(nowMs + this.alarmPeriodMs());
     }
   }
 
@@ -266,8 +276,7 @@ export class TempleRoom extends Server<Env> {
     const log = this.telemetry.with({ correlation_id: state.correlationId });
     if (!result.ok) {
       log.count('refused', { reason: ERROR_CODE.hallFull });
-      this.safeSend(connection, { type: 'error', code: ERROR_CODE.hallFull });
-      connection.close(CLOSE_CODE.hallFull, ERROR_CODE.hallFull);
+      await this.refuseFullHall(connection);
       return;
     }
     const resumeToken = newResumeToken();
@@ -372,14 +381,99 @@ export class TempleRoom extends Server<Env> {
   }
 
   private announcePopulation(): void {
-    const count = this.registry.size;
-    this.sendToAdmitted({ type: 'population', count });
-    this.ctx.waitUntil(this.reportToDirectory(count));
+    this.sendToAdmitted({ type: 'population', count: this.registry.size });
+    if (this.registry.size >= this.config.hall.maxPlayers) {
+      // A full hall is told at once, so the next visitor is not sent to it.
+      this.sendReport();
+    } else {
+      this.scheduleReport();
+    }
+  }
+
+  /**
+   * Tells the hall directory how many people are here, at most once per `hall.reportIntervalSec`.
+   * A change inside the interval waits for the end of it, so the last change is never left out.
+   */
+  private scheduleReport(): void {
+    if (this.reportTimer !== null) {
+      return;
+    }
+    const intervalMs = this.config.hall.reportIntervalSec * MS_PER_SECOND;
+    const delay = reportDelayMs(this.lastReportAtMs, Date.now(), intervalMs);
+    if (delay === 0) {
+      this.sendReport();
+      return;
+    }
+    this.reportTimer = setTimeout(() => {
+      this.reportTimer = null;
+      this.sendReport();
+    }, delay);
+  }
+
+  private sendReport(): void {
+    this.lastReportAtMs = Date.now();
+    this.ctx.waitUntil(this.reportToDirectory(this.registry.size));
+  }
+
+  /** An occupied hall repeats its report so the directory can tell a quiet hall from a gone one. */
+  private sendHeartbeat(nowMs: number): void {
+    const heartbeatMs = this.config.hall.heartbeatSec * MS_PER_SECOND;
+    const due = this.lastReportAtMs === null || nowMs - this.lastReportAtMs >= heartbeatMs;
+    if (this.registry.size > 0 && due) {
+      this.sendReport();
+    }
+  }
+
+  /** The alarm must come at least as often as the heartbeat. */
+  private alarmPeriodMs(): number {
+    const { sweepSec, heartbeatSec } = this.config.hall;
+    return Math.min(sweepSec, heartbeatSec) * MS_PER_SECOND;
   }
 
   private async reportToDirectory(count: number): Promise<void> {
-    const directory = this.env.HallDirectory.getByName(directoryName(this.env.TEMPLE_SLUG));
-    await directory.report(this.hall, count, Date.now());
+    try {
+      const directory = this.env.HallDirectory.getByName(directoryName(this.env.TEMPLE_SLUG));
+      await directory.report(this.hall, count, Date.now());
+    } catch {
+      this.telemetry.count('directory_unavailable', { during: 'report' });
+    }
+  }
+
+  /**
+   * Refuses someone because this hall is full, and says where to try next: the hall that most
+   * likely has space, or that no hall has (`all_halls_full`). When the directory cannot be reached
+   * the answer carries no hall, and the browser tries the halls in order.
+   */
+  private async refuseFullHall(connection: Connection): Promise<void> {
+    // Make sure the directory knows this hall is full before asking it where else to go.
+    await this.reportToDirectory(this.registry.size);
+    const nextHall = await this.findNextHall();
+    const all = nextHall === null;
+    this.safeSend(connection, {
+      type: 'error',
+      code: all ? ERROR_CODE.allHallsFull : ERROR_CODE.hallFull,
+      ...(nextHall === undefined ? {} : { nextHall }),
+    });
+    connection.close(CLOSE_CODE.hallFull, ERROR_CODE.hallFull);
+  }
+
+  /** The next hall to try, null when every hall is full, undefined when the directory is down. */
+  private async findNextHall(): Promise<number | null | undefined> {
+    const { count, maxPlayers, suggestSpread } = this.config.hall;
+    try {
+      const counts = await readHallCounts(this.env, Date.now());
+      counts.set(this.hall, maxPlayers);
+      return suggestHall(counts, {
+        hallCount: count,
+        maxPlayers,
+        spread: suggestSpread,
+        random: Math.random,
+        exclude: new Set([this.hall]),
+      });
+    } catch {
+      this.telemetry.count('directory_unavailable', { during: 'refusal' });
+      return undefined;
+    }
   }
 
   /** Answers a message that must not be accepted, and closes the connection after too many. */
@@ -414,7 +508,7 @@ export class TempleRoom extends Server<Env> {
 
   private async ensureAlarm(nowMs: number): Promise<void> {
     if ((await this.ctx.storage.getAlarm()) === null) {
-      await this.ctx.storage.setAlarm(nowMs + this.config.hall.sweepSec * MS_PER_SECOND);
+      await this.ctx.storage.setAlarm(nowMs + this.alarmPeriodMs());
     }
   }
 

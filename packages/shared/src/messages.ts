@@ -68,7 +68,16 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('population'), count: z.number().int().nonnegative() }),
   z.object({
     type: z.literal('error'),
-    code: z.enum(['hall_full', 'invalid_message', 'rate_limited', 'not_allowed', 'idle_timeout']),
+    code: z.enum([
+      'hall_full',
+      'all_halls_full',
+      'invalid_message',
+      'rate_limited',
+      'not_allowed',
+      'idle_timeout',
+    ]),
+    /** With `hall_full`: the hall that most likely has space, or null when none was found. */
+    nextHall: z.number().int().positive().nullable().optional(),
   }),
 ]);
 export type ServerMessage = z.infer<typeof serverMessageSchema>;
@@ -141,4 +150,35 @@ export function nicknameText(
 interface WordEntry {
   id: string;
   text: Partial<Record<(typeof LANGUAGE_CODES)[number], string>>;
+}
+
+const hallSummary = z.object({
+  hall: z.number().int().positive(),
+  count: z.number().int().nonnegative(),
+  full: z.boolean(),
+});
+
+/** One line of the halls list: a hall, the people in it, and whether it is full. */
+export type HallSummary = z.infer<typeof hallSummary>;
+
+/** The answer of `GET /api/halls` (spec section 5.5). */
+export const hallsResponseSchema = z.object({
+  /** The halls to show in "Change hall": those with people, plus the next empty one. */
+  halls: z.array(hallSummary),
+  /** The hall a visitor without a chosen hall should join, or null when every hall is full. */
+  suggestedHall: z.number().int().positive().nullable(),
+  hallCount: z.number().int().positive(),
+  maxPlayers: z.number().int().positive(),
+});
+export type HallsResponse = z.infer<typeof hallsResponseSchema>;
+
+/**
+ * Reads the halls list from the network.
+ *
+ * @param raw - Parsed JSON.
+ * @returns The list, or null when it is not in the expected shape.
+ */
+export function parseHallsResponse(raw: unknown): HallsResponse | null {
+  const result = hallsResponseSchema.safeParse(raw);
+  return result.success ? result.data : null;
 }

@@ -384,3 +384,22 @@ Checked by hand in the desktop browser: joining, the HUD, seeing a scripted seco
 Notes for later: the browser connection uses the default config values for the hall count; M3 replaces the `?hall=N` default with hall assignment. The SelfAvatar has no ritual animations yet (M4).
 
 Next: M3 (halls: directory, assignment, Change hall).
+
+---
+
+## 16. M3 status (2026-11-01)
+
+| Task | Status |
+|---|---|
+| M3-1 Hall directory | Done: reports with timestamps (older ones ignored), counts that drop a hall after three silent heartbeats, small RPC returning `{ hall, count }` pairs. |
+| M3-2 Throttled reports and heartbeat | Done: at most one report per `hall.reportIntervalSec` with a trailing report, heartbeat from the alarm while occupied, immediate report when a hall is full or refuses someone. |
+| M3-3 `GET /api/halls` | Done: halls with people plus the first empty one, `suggestedHall` (spread over the first three halls with space), `no-store`, CORS for allowed origins, 503 when the directory is down. |
+| M3-4 Refusal hints | Done: `hall_full` with `nextHall`, `all_halls_full` with `nextHall: null`, both closing with 4001. |
+| M3-5 Join flow | Done: link hall, then the tab's last hall, then the suggestion; follows hints without repeating a hall; falls back to hall order; shows "all halls full" without connecting when nothing has space. |
+| M3-6 UI | Built: placed-in-another-hall message, all-halls-full and hall-full screens with Try again, Change hall list, Invite a friend. **Not yet checked visually** (the browser pane was hidden). |
+
+Tests: 226 in total (shared 73, room-logic 38, web 82, worker 33). The worker tests now include the directory (throttle, trailing report, stale hall, heartbeat), the halls API, refusal hints, the case where every hall is full, and a 160-visitor burst that places everyone without overfilling any hall. The burst test first failed (2 of 160 stranded): refused visitors bounced between full halls because the directory learned a hall was full a second late. Reporting at once when full or refusing, and never retrying a tried hall, fixed it; four further runs were clean.
+
+Known limits: the directory is in memory, so after it restarts every hall looks empty until it next reports (up to one heartbeat), and visitors may be sent to a full hall and follow a hint. `GET /api/halls` has no rate limit yet (M8). Hall names are plain "Hall N" (open question O-8).
+
+Next: M4 (rituals: greet, bow with cushions, beads, lamp, and the activity toasts).

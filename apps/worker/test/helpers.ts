@@ -1,6 +1,12 @@
-import { SELF } from 'cloudflare:test';
-import { parseServerMessage, type ServerMessage } from '@temple/shared';
-import { vi } from 'vitest';
+import { SELF, env } from 'cloudflare:test';
+import {
+  DEFAULT_CONFIG,
+  directoryName,
+  parseHallsResponse,
+  parseServerMessage,
+  type ServerMessage,
+} from '@temple/shared';
+import { expect, vi } from 'vitest';
 
 export const ORIGIN = 'http://localhost:5173';
 const WAIT_MS = 4000;
@@ -98,4 +104,87 @@ export async function joinHall(
   client.send({ type: 'join', lang: 'en', ...extra });
   const welcome = await client.waitFor('welcome');
   return { client, welcome };
+}
+
+const REPORT_WAIT_MS = 6000;
+
+/** The directory, as the hall and the Worker see it. */
+export function directoryStub() {
+  return env.HallDirectory.getByName(directoryName('flagship'));
+}
+
+/** What the directory currently knows: hall number to people. */
+export async function reportedCounts(): Promise<Map<number, number>> {
+  const entries = await directoryStub().counts(Date.now());
+  return new Map(entries.map((entry) => [entry.hall, entry.count]));
+}
+
+/** Waits until the directory shows the given number of people for a hall. */
+export async function waitForReportedCount(hall: number, count: number): Promise<void> {
+  await vi.waitFor(
+    async () => {
+      expect((await reportedCounts()).get(hall) ?? 0).toBe(count);
+    },
+    { timeout: REPORT_WAIT_MS },
+  );
+}
+
+/** Asks the Worker for the halls list, as the browser does. */
+export async function fetchHalls() {
+  const response = await SELF.fetch('http://example.com/api/halls', {
+    headers: { Origin: ORIGIN },
+  });
+  return { response, body: parseHallsResponse(await response.json()) };
+}
+
+/**
+ * Joins the way the browser does (spec 5.5): ask which hall has space, join it, and when refused
+ * follow the hall's hint, trying at most `hall.joinRetries` halls.
+ *
+ * @returns The hall joined, how many tries it took, and the client; or null hall when it gave up.
+ */
+export async function joinWithAssignment(): Promise<{
+  hall: number | null;
+  tries: number;
+  client: TestClient | null;
+}> {
+  const listing = (await fetchHalls()).body;
+  let hall = listing?.suggestedHall ?? null;
+  const tried = new Set<number>();
+  for (let tries = 1; tries <= DEFAULT_CONFIG.hall.joinRetries && hall !== null; tries += 1) {
+    tried.add(hall);
+    const client = await connect(hall);
+    client.send({ type: 'join', lang: 'en' });
+    const answer = await vi.waitFor(
+      () => {
+        const done = client.of('welcome')[0] ?? client.of('error')[0];
+        if (done === undefined) {
+          throw new Error('No answer yet');
+        }
+        return done;
+      },
+      { timeout: WAIT_MS },
+    );
+    if (answer.type === 'welcome') {
+      return { hall, tries, client };
+    }
+    // Follow the hint unless that hall was already tried; then take the first hall not yet tried.
+    const hint = answer.nextHall;
+    hall =
+      hint !== null && hint !== undefined && !tried.has(hint)
+        ? hint
+        : answer.code === 'all_halls_full'
+          ? null
+          : firstUntried(tried);
+  }
+  return { hall: null, tries: DEFAULT_CONFIG.hall.joinRetries, client: null };
+}
+
+function firstUntried(tried: ReadonlySet<number>): number | null {
+  for (let hall = 1; hall <= DEFAULT_CONFIG.hall.count; hall += 1) {
+    if (!tried.has(hall)) {
+      return hall;
+    }
+  }
+  return null;
 }

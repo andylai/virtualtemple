@@ -5,6 +5,7 @@ import { Overlay } from './Overlay';
 /** Messages shown over the hall when the visitor is out of it, with the button that returns. */
 const OUT_OF_HALL = {
   hall_full: { message: 'status.hallFull', button: 'button.tryAgain' },
+  all_halls_full: { message: 'status.allHallsFull', button: 'button.tryAgain' },
   away: { message: 'status.away', button: 'enter.button' },
   replaced: { message: 'status.replaced', button: 'button.tryAgain' },
   disconnected: { message: 'status.disconnected', button: 'button.tryAgain' },

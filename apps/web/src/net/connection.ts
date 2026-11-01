@@ -2,6 +2,7 @@ import {
   CLOSE_CODE,
   parseServerMessage,
   type LanguageCode,
+  type NicknameIds,
   type ServerMessage,
 } from '@temple/shared';
 import {
@@ -24,23 +25,41 @@ const RECONNECT_JITTER = 0.2;
 
 /** Closes after which the browser must not reconnect by itself, and the status each one means. */
 const FINAL_CLOSES: ReadonlyMap<number, HallStatus> = new Map([
-  [CLOSE_CODE.hallFull, 'hall_full'],
   [CLOSE_CODE.idle, 'away'],
   [CLOSE_CODE.replaced, 'replaced'],
   [CLOSE_CODE.invalidMessages, 'disconnected'],
   [CLOSE_CODE.joinTimeout, 'disconnected'],
 ]);
 
-/** Keeps the token that lets this tab return to its place after a drop. */
+/** The token that lets this tab return to its place after a drop, and the hall it belongs to. */
+export interface SavedToken {
+  hall: number;
+  token: string;
+}
+
+/** Keeps the saved token. */
 export interface TokenStorage {
-  read(): string | null;
-  write(token: string): void;
+  read(): SavedToken | null;
+  write(hall: number, token: string): void;
   clear(): void;
+}
+
+/** What to send in `join` besides the token. */
+export interface ConnectOptions {
+  /** The nickname to keep, for example when moving to another hall. */
+  nickname?: NicknameIds | undefined;
+}
+
+/** What the join flow needs from a connection. */
+export interface HallLink {
+  connect(hall: number, options?: ConnectOptions): void;
+  close(): void;
 }
 
 /** Everything the connection needs from outside, so tests can replace it. */
 export interface ConnectionDeps {
-  url: string;
+  /** The WebSocket address of a hall. */
+  urlForHall: (hall: number) => string;
   language: LanguageCode;
   store: Store<HallState>;
   tracks: TrackSet;
@@ -55,8 +74,10 @@ export interface ConnectionDeps {
  * The browser's link to one hall: joins, keeps the state and positions up to date, sends the
  * visitor's own moves, and reconnects with back-off when the network drops (FR-40, FR-41).
  */
-export class HallConnection {
+export class HallConnection implements HallLink {
   private socket: WebSocket | null = null;
+  private hall = 1;
+  private options: ConnectOptions = {};
   private attempt = 0;
   private stopped = true;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -64,8 +85,19 @@ export class HallConnection {
 
   constructor(private readonly deps: ConnectionDeps) {}
 
-  /** Opens the connection and joins the hall. */
-  connect(): void {
+  /**
+   * Opens a connection to a hall and joins it. A connection that is already open is closed first.
+   *
+   * @param hall - The hall number.
+   * @param options - Extra things to send with `join`.
+   */
+  connect(hall: number, options: ConnectOptions = {}): void {
+    this.clearTimers();
+    const previous = this.socket;
+    this.socket = null;
+    previous?.close(NORMAL_CLOSE, 'moving');
+    this.hall = hall;
+    this.options = options;
     this.stopped = false;
     this.attempt = 0;
     this.open();
@@ -87,7 +119,7 @@ export class HallConnection {
 
   private open(): void {
     this.setStatus(this.attempt === 0 ? 'connecting' : 'reconnecting');
-    const socket = this.deps.createSocket(this.deps.url);
+    const socket = this.deps.createSocket(this.deps.urlForHall(this.hall));
     this.socket = socket;
     socket.addEventListener('open', () => this.join());
     socket.addEventListener('message', (event) => this.receive(event.data));
@@ -95,11 +127,13 @@ export class HallConnection {
   }
 
   private join(): void {
-    const resumeToken = this.deps.tokens.read();
+    const saved = this.deps.tokens.read();
+    const resumeToken = saved?.hall === this.hall ? saved.token : undefined;
     this.send({
       type: 'join',
       lang: this.deps.language,
-      ...(resumeToken === null ? {} : { resumeToken }),
+      ...(this.options.nickname === undefined ? {} : { nickname: this.options.nickname }),
+      ...(resumeToken === undefined ? {} : { resumeToken }),
     });
   }
 
@@ -126,7 +160,7 @@ export class HallConnection {
 
   private welcomed(message: Extract<ServerMessage, { type: 'welcome' }>): void {
     this.attempt = 0;
-    this.deps.tokens.write(message.resumeToken);
+    this.deps.tokens.write(message.hall, message.resumeToken);
     this.deps.tracks.clear();
     message.players.forEach((player) => this.deps.tracks.push(player.id, this.sampleOf(player)));
     this.startPings(message.pingSec);
@@ -149,7 +183,7 @@ export class HallConnection {
     }
     this.clearTimers();
     this.socket = null;
-    const finalStatus = FINAL_CLOSES.get(code);
+    const finalStatus = this.finalStatusFor(code);
     if (finalStatus !== undefined) {
       this.stopped = true;
       this.setStatus(finalStatus);
@@ -159,6 +193,15 @@ export class HallConnection {
     } else if (!this.stopped) {
       this.scheduleReconnect();
     }
+  }
+
+  private finalStatusFor(code: number): HallStatus | undefined {
+    if (code === CLOSE_CODE.hallFull) {
+      return this.deps.store.getState().refusal?.code === 'all_halls_full'
+        ? 'all_halls_full'
+        : 'hall_full';
+    }
+    return FINAL_CLOSES.get(code);
   }
 
   private scheduleReconnect(): void {
@@ -212,14 +255,15 @@ export function sessionTokenStorage(key = 'temple.resumeToken'): TokenStorage {
   return {
     read: () => {
       try {
-        return sessionStorage.getItem(key);
+        const [hall, token] = (sessionStorage.getItem(key) ?? '').split(':');
+        return /^[0-9]{1,4}$/.test(hall ?? '') && token ? { hall: Number(hall), token } : null;
       } catch {
         return null;
       }
     },
-    write: (token) => {
+    write: (hall, token) => {
       try {
-        sessionStorage.setItem(key, token);
+        sessionStorage.setItem(key, `${hall}:${token}`);
       } catch {
         // Private windows can refuse storage; the visitor then simply rejoins as a new person.
       }

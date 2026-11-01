@@ -1,15 +1,10 @@
+import { effectiveCounts, type HallReport } from '@temple/room-logic';
 import { DurableObject } from 'cloudflare:workers';
+import { configFor } from './config';
 
-/** The latest known people count of one hall. */
-export interface HallCount {
-  hall: number;
-  count: number;
-}
-
-interface Report {
-  count: number;
-  reportedAtMs: number;
-}
+const MS_PER_SECOND = 1000;
+/** A report is believed for this many heartbeat intervals before the hall is taken to be gone. */
+const HEARTBEATS_BEFORE_STALE = 3;
 
 /**
  * Keeps the latest people count of each hall so the Worker can answer "which hall has space"
@@ -17,7 +12,7 @@ interface Report {
  * heartbeat, so a restarted directory recovers by itself (spec section 5.5).
  */
 export class HallDirectory extends DurableObject<Env> {
-  private readonly reports = new Map<number, Report>();
+  private readonly reports = new Map<number, HallReport>();
 
   /**
    * Records a hall's people count. A report older than the one already held is ignored, so
@@ -35,10 +30,18 @@ export class HallDirectory extends DurableObject<Env> {
     this.reports.set(hall, { count, reportedAtMs });
   }
 
-  /** Lists the known hall counts in hall order. */
-  list(): HallCount[] {
-    return [...this.reports.entries()]
-      .map(([hall, { count }]) => ({ hall, count }))
-      .sort((a, b) => a.hall - b.hall);
+  /**
+   * The people in each hall that has reported recently. A hall whose
+   * report is too old is left out, because an occupied hall keeps repeating its report.
+   *
+   * @param nowMs - The current time in epoch milliseconds.
+   */
+  counts(nowMs: number): { hall: number; count: number }[] {
+    const staleAfterMs =
+      configFor(this.env).hall.heartbeatSec * HEARTBEATS_BEFORE_STALE * MS_PER_SECOND;
+    return [...effectiveCounts(this.reports, nowMs, staleAfterMs)].map(([hall, count]) => ({
+      hall,
+      count,
+    }));
   }
 }

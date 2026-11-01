@@ -16,6 +16,7 @@ export const CORRELATION_HEADER = 'x-correlation-id';
 /** Server-to-client error codes (spec section 6.2). */
 export const ERROR_CODE = {
   hallFull: 'hall_full',
+  allHallsFull: 'all_halls_full',
   invalidMessage: 'invalid_message',
   rateLimited: 'rate_limited',
   notAllowed: 'not_allowed',

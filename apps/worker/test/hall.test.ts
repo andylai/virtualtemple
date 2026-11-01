@@ -1,7 +1,16 @@
 import { SELF, env, evictAllDurableObjects, runInDurableObject } from 'cloudflare:test';
 import { CLOSE_CODE, DEFAULT_CONFIG, hallRoomName } from '@temple/shared';
 import { describe, expect, it, vi } from 'vitest';
-import { connect, joinHall, ORIGIN } from './helpers';
+import {
+  connect,
+  directoryStub,
+  fetchHalls,
+  joinHall,
+  joinWithAssignment,
+  ORIGIN,
+  reportedCounts,
+  waitForReportedCount,
+} from './helpers';
 
 const { maxPlayers, idleKickSec, joinTimeoutSec } = DEFAULT_CONFIG.hall;
 const MS_PER_SECOND = 1000;
@@ -182,12 +191,7 @@ describe('dropping and coming back', () => {
   it('lets a token be used only once', async () => {
     const first = await joinHall(11);
     first.client.close(1001);
-    await vi.waitFor(async () => {
-      const list = await (
-        await SELF.fetch('http://example.com/api/halls')
-      ).json<{ hall: number; count: number }[]>();
-      expect(list.find((entry) => entry.hall === 11)?.count).toBe(0);
-    });
+    await waitForReportedCount(11, 0);
     const once = await joinHall(11, { resumeToken: first.welcome.resumeToken });
     once.client.close(1001);
     const twice = await joinHall(11, { resumeToken: first.welcome.resumeToken });
@@ -203,12 +207,7 @@ describe('dropping and coming back', () => {
   it('forgets a person once the grace period is over', async () => {
     const first = await joinHall(12);
     first.client.close(1001);
-    await vi.waitFor(async () => {
-      const list = await (
-        await SELF.fetch('http://example.com/api/halls')
-      ).json<{ hall: number; count: number }[]>();
-      expect(list.find((entry) => entry.hall === 12)?.count).toBe(0);
-    });
+    await waitForReportedCount(12, 0);
     const graceMs = DEFAULT_CONFIG.hall.reconnectGraceSec * MS_PER_SECOND;
     await sweepAt(12, Date.now() + graceMs + MS_PER_SECOND);
     const back = await joinHall(12, { resumeToken: first.welcome.resumeToken });
@@ -271,14 +270,114 @@ describe('hall directory', () => {
     await joinHall(17);
     await joinHall(17);
     await joinHall(18);
-    await vi.waitFor(async () => {
-      const list = await (
-        await SELF.fetch('http://example.com/api/halls')
-      ).json<{ hall: number; count: number }[]>();
-      expect(list.filter((entry) => entry.hall >= 17)).toEqual([
-        { hall: 17, count: 2 },
-        { hall: 18, count: 1 },
-      ]);
-    });
+    await waitForReportedCount(17, 2);
+    await waitForReportedCount(18, 1);
   });
+
+  it('follows people leaving, including the last change inside the interval', async () => {
+    const people = await Promise.all([joinHall(19), joinHall(19), joinHall(19)]);
+    await waitForReportedCount(19, 3);
+    people.forEach(({ client }) => client.close());
+    await waitForReportedCount(19, 0);
+  });
+
+  it('forgets a hall whose report has gone stale, because an occupied hall repeats it', async () => {
+    await joinHall(20);
+    await waitForReportedCount(20, 1);
+    const staleAt = Date.now() + 10 * 60 * MS_PER_SECOND;
+    expect(await directoryStub().counts(staleAt)).toEqual([]);
+  });
+
+  it('repeats the report as a heartbeat while the hall is occupied', async () => {
+    await joinHall(20);
+    await waitForReportedCount(20, 1);
+    await directoryStub().report(20, 0, Date.now());
+    expect((await reportedCounts()).get(20)).toBe(0);
+    await sweepAt(20, Date.now() + (DEFAULT_CONFIG.hall.heartbeatSec + 1) * MS_PER_SECOND);
+    await waitForReportedCount(20, 1);
+  });
+});
+
+describe('GET /api/halls', () => {
+  it('lists halls with people plus the first empty one, and suggests a hall with space', async () => {
+    await joinHall(2);
+    await joinHall(2);
+    await joinHall(4);
+    await waitForReportedCount(2, 2);
+    await waitForReportedCount(4, 1);
+    const { response, body } = await fetchHalls();
+    expect(response.status).toBe(200);
+    expect(body?.halls).toEqual([
+      { hall: 1, count: 0, full: false },
+      { hall: 2, count: 2, full: false },
+      { hall: 4, count: 1, full: false },
+    ]);
+    expect(body).toMatchObject({ hallCount: DEFAULT_CONFIG.hall.count, maxPlayers });
+    expect([1, 2, 3]).toContain(body?.suggestedHall);
+  });
+
+  it('suggests a hall even when nobody is anywhere', async () => {
+    const { body } = await fetchHalls();
+    expect(body?.halls).toEqual([{ hall: 1, count: 0, full: false }]);
+    expect([1, 2, 3]).toContain(body?.suggestedHall);
+  });
+
+  it('is readable from an allowed origin and not from another', async () => {
+    const allowed = await SELF.fetch('http://example.com/api/halls', {
+      headers: { Origin: ORIGIN },
+    });
+    expect(allowed.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN);
+    expect(allowed.headers.get('Cache-Control')).toBe('no-store');
+    const foreign = await SELF.fetch('http://example.com/api/halls', {
+      headers: { Origin: 'https://evil.example' },
+    });
+    expect(foreign.headers.get('Access-Control-Allow-Origin')).toBeNull();
+  });
+});
+
+describe('a full hall', () => {
+  async function fillHall(hall: number) {
+    return Promise.all(Array.from({ length: maxPlayers }, () => joinHall(hall)));
+  }
+
+  it('tells the refused visitor which other hall to try', async () => {
+    await fillHall(5);
+    await waitForReportedCount(5, maxPlayers);
+    const late = await connect(5);
+    late.send({ type: 'join', lang: 'en' });
+    const refusal = await late.waitFor('error');
+    expect(refusal.code).toBe('hall_full');
+    expect(refusal.nextHall).toBeGreaterThanOrEqual(1);
+    expect(refusal.nextHall).not.toBe(5);
+    expect(await late.waitForClose()).toBe(CLOSE_CODE.hallFull);
+  });
+
+  it('says that every hall is full when the directory shows no hall with space', async () => {
+    await fillHall(6);
+    const now = Date.now();
+    for (let hall = 1; hall <= DEFAULT_CONFIG.hall.count; hall += 1) {
+      await directoryStub().report(hall, maxPlayers, now);
+    }
+    const late = await connect(6);
+    late.send({ type: 'join', lang: 'en' });
+    const refusal = await late.waitFor('error');
+    expect(refusal).toMatchObject({ code: 'all_halls_full', nextHall: null });
+    expect((await fetchHalls()).body?.suggestedHall).toBeNull();
+  });
+});
+
+describe('a burst of visitors who all ask which hall to join', () => {
+  it('places everyone, and never overfills a hall, even though the directory lags', async () => {
+    const visitors = 3 * maxPlayers + 10;
+    const placed = await Promise.all(Array.from({ length: visitors }, () => joinWithAssignment()));
+    const stranded = placed.filter((result) => result.client === null);
+    expect(stranded).toHaveLength(0);
+    const perHall = new Map<number, number>();
+    placed.forEach(({ hall }) =>
+      perHall.set(hall as number, (perHall.get(hall as number) ?? 0) + 1),
+    );
+    expect(Math.max(...perHall.values())).toBeLessThanOrEqual(maxPlayers);
+    const retried = placed.filter((result) => result.tries > 1).length;
+    expect(retried).toBeGreaterThan(0);
+  }, 30_000);
 });

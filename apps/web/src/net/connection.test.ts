@@ -1,6 +1,6 @@
 import { CLOSE_CODE, type ServerMessage } from '@temple/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { HallConnection, type TokenStorage } from './connection';
+import { HallConnection, type SavedToken, type TokenStorage } from './connection';
 import { INITIAL_HALL_STATE, type HallState } from './hallState';
 import { TrackSet } from './interpolation';
 import { Store } from './store';
@@ -8,6 +8,7 @@ import { Store } from './store';
 type Listener = (event: { data?: unknown; code?: number }) => void;
 
 class FakeSocket {
+  constructor(readonly url: string) {}
   readyState = 0;
   sent: Record<string, unknown>[] = [];
   closedWith: number | null = null;
@@ -63,10 +64,10 @@ const welcome = (resumeToken = 't'.repeat(32)): ServerMessage => ({
 
 function setup() {
   const sockets: FakeSocket[] = [];
-  let saved: string | null = null;
+  let saved: SavedToken | null = null;
   const tokens: TokenStorage = {
     read: () => saved,
-    write: (token) => (saved = token),
+    write: (hall, token) => (saved = { hall, token }),
     clear: () => (saved = null),
   };
   const store = new Store<HallState>(INITIAL_HALL_STATE);
@@ -74,13 +75,13 @@ function setup() {
   let visible = true;
   let clock = 1000;
   const connection = new HallConnection({
-    url: 'ws://test/ws?hall=1',
+    urlForHall: (hall) => `ws://test/ws?hall=${hall}`,
     language: 'en',
     store,
     tracks,
     tokens,
-    createSocket: () => {
-      const socket = new FakeSocket();
+    createSocket: (url) => {
+      const socket = new FakeSocket(url);
       sockets.push(socket);
       return socket as unknown as WebSocket;
     },
@@ -105,26 +106,26 @@ afterEach(() => vi.useRealTimers());
 describe('HallConnection', () => {
   it('joins when the socket opens, and remembers the token from the welcome', () => {
     const { connection, sockets, store, tokens } = setup();
-    connection.connect();
+    connection.connect(1);
     expect(store.getState().status).toBe('connecting');
     sockets[0]!.open();
     expect(sockets[0]!.sent).toEqual([{ type: 'join', lang: 'en' }]);
     sockets[0]!.receive(welcome());
     expect(store.getState()).toMatchObject({ status: 'joined', selfId: 'player-self-xx' });
-    expect(tokens.read()).toBe('t'.repeat(32));
+    expect(tokens.read()).toEqual({ hall: 1, token: 't'.repeat(32) });
   });
 
   it('puts the saved token in the join so the same person returns', () => {
     const { connection, sockets, tokens } = setup();
-    tokens.write('x'.repeat(32));
-    connection.connect();
+    tokens.write(1, 'x'.repeat(32));
+    connection.connect(1);
     sockets[0]!.open();
     expect(sockets[0]!.sent[0]).toEqual({ type: 'join', lang: 'en', resumeToken: 'x'.repeat(32) });
   });
 
   it('records snapshots as positions to draw', () => {
     const { connection, sockets, tracks, advanceClock } = setup();
-    connection.connect();
+    connection.connect(1);
     sockets[0]!.open();
     sockets[0]!.receive(welcome());
     advanceClock(125);
@@ -138,7 +139,7 @@ describe('HallConnection', () => {
 
   it('reconnects with a growing delay after a drop, and starts over after a welcome', () => {
     const { connection, sockets, store } = setup();
-    connection.connect();
+    connection.connect(1);
     sockets[0]!.open();
     sockets[0]!.receive(welcome());
     sockets[0]!.drop(1006);
@@ -164,7 +165,7 @@ describe('HallConnection', () => {
     [CLOSE_CODE.invalidMessages, 'disconnected'],
   ])('does not reconnect after close code %i, and shows %s', (code, status) => {
     const { connection, sockets, store } = setup();
-    connection.connect();
+    connection.connect(1);
     sockets[0]!.open();
     sockets[0]!.drop(code);
     vi.advanceTimersByTime(60_000);
@@ -174,7 +175,7 @@ describe('HallConnection', () => {
 
   it('forgets the saved token after being away or replaced', () => {
     const { connection, sockets, tokens } = setup();
-    connection.connect();
+    connection.connect(1);
     sockets[0]!.open();
     sockets[0]!.receive(welcome());
     sockets[0]!.drop(CLOSE_CODE.idle);
@@ -183,7 +184,7 @@ describe('HallConnection', () => {
 
   it('pings while the page is visible and stays quiet when it is hidden', () => {
     const { connection, sockets, hide } = setup();
-    connection.connect();
+    connection.connect(1);
     sockets[0]!.open();
     sockets[0]!.receive(welcome());
     vi.advanceTimersByTime(30_000);
@@ -195,7 +196,7 @@ describe('HallConnection', () => {
 
   it('sends moves only while the socket is open', () => {
     const { connection, sockets } = setup();
-    connection.connect();
+    connection.connect(1);
     connection.sendMove(1, 2, 3);
     expect(sockets[0]!.sent).toEqual([]);
     sockets[0]!.open();
@@ -205,7 +206,7 @@ describe('HallConnection', () => {
 
   it('stops for good when the visitor leaves', () => {
     const { connection, sockets, store } = setup();
-    connection.connect();
+    connection.connect(1);
     sockets[0]!.open();
     connection.close();
     sockets[0]!.drop(1006);
@@ -216,9 +217,71 @@ describe('HallConnection', () => {
 
   it('ignores a message that breaks the schema', () => {
     const { connection, sockets, store } = setup();
-    connection.connect();
+    connection.connect(1);
     sockets[0]!.open();
     sockets[0]!.receive({ type: 'welcome' } as unknown as ServerMessage);
     expect(store.getState().status).toBe('connecting');
+  });
+});
+
+describe('HallConnection: halls', () => {
+  it('connects to the hall it is told to, and sends the nickname it should keep', () => {
+    const { connection, sockets } = setup();
+    const nickname = { adjectiveId: 'calm', nounId: 'lotus' };
+    connection.connect(4, { nickname });
+    sockets[0]!.open();
+    expect(sockets[0]!.url).toBe('ws://test/ws?hall=4');
+    expect(sockets[0]!.sent[0]).toEqual({ type: 'join', lang: 'en', nickname });
+  });
+
+  it('sends the saved token only to the hall it belongs to', () => {
+    const { connection, sockets, tokens } = setup();
+    tokens.write(2, 'x'.repeat(32));
+    connection.connect(3);
+    sockets[0]!.open();
+    expect(sockets[0]!.sent[0]).toEqual({ type: 'join', lang: 'en' });
+    connection.connect(2);
+    sockets[1]!.open();
+    expect(sockets[1]!.sent[0]).toEqual({ type: 'join', lang: 'en', resumeToken: 'x'.repeat(32) });
+  });
+
+  it('closes the old socket when moving to another hall, and ignores its late close', () => {
+    const { connection, sockets, store } = setup();
+    connection.connect(1);
+    sockets[0]!.open();
+    connection.connect(2);
+    expect(sockets[0]!.closedWith).toBe(1000);
+    sockets[0]!.drop(1006);
+    expect(sockets).toHaveLength(2);
+    expect(store.getState().status).toBe('connecting');
+  });
+
+  it('keeps the hall number in the saved token', () => {
+    const { connection, sockets, tokens } = setup();
+    connection.connect(1);
+    sockets[0]!.open();
+    sockets[0]!.receive({ ...(welcome() as Extract<ServerMessage, { type: 'welcome' }>), hall: 6 });
+    expect(tokens.read()?.hall).toBe(6);
+  });
+
+  it('shows "hall full" after a refusal with a hint, and keeps the hint', () => {
+    const { connection, sockets, store } = setup();
+    connection.connect(1);
+    sockets[0]!.open();
+    sockets[0]!.receive({ type: 'error', code: 'hall_full', nextHall: 3 });
+    sockets[0]!.drop(CLOSE_CODE.hallFull);
+    expect(store.getState()).toMatchObject({
+      status: 'hall_full',
+      refusal: { code: 'hall_full', nextHall: 3 },
+    });
+  });
+
+  it('shows "all halls full" when the refusal says no hall has space', () => {
+    const { connection, sockets, store } = setup();
+    connection.connect(1);
+    sockets[0]!.open();
+    sockets[0]!.receive({ type: 'error', code: 'all_halls_full', nextHall: null });
+    sockets[0]!.drop(CLOSE_CODE.hallFull);
+    expect(store.getState().status).toBe('all_halls_full');
   });
 });

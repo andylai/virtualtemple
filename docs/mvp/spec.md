@@ -67,7 +67,7 @@ Visitors see halls named "Hall 1", "Hall 2" and so on, with a count of people. T
   - A link with a hall number, such as `?hall=2`, goes to that hall. `hall` is a whole number from 1 to `hall.count`, matching the "Hall 2" label.
   - Internally the Worker maps the hall to one Durable Object (section 5).
 - FR-6: Each hall holds at most `hall.maxPlayers` people (proposed default 50). The hall itself makes the final decision on every join, so two visitors can never take the last place. The capacity check and the adding of the player happen in one synchronous step with no `await` between them, because a Durable Object can interleave other work at an `await`. The count is of admitted connections, meaning those that already passed this check, and not of merely open connections. Counting open connections would refuse everyone when many arrive at once, because each joiner would see all the others. It also comes from the live connections, not from a separate counter that could drift (confirmed by the simultaneous-joins test, spikes.md S7).
-- FR-7: When the chosen hall is full, the client does not show an error. It joins the next hall with space (up to `hall.joinRetries` tries) and shows a short message such as "Hall 2 was full, so we placed you in Hall 3." If every hall is full, it shows "All halls are full right now. Please try again in a few minutes." with a "Try again" button. The `hall_full` reply carries fresh counts and the next hall with space, so the retry does not depend on the directory's possibly stale numbers.
+- FR-7: When the chosen hall is full, the client does not show an error. It joins the next hall with space (up to `hall.joinRetries` tries) and shows a short message such as "Hall 2 was full, so we placed you in Hall 3." If every hall is full, it shows "All halls are full right now. Please try again in a few minutes." with a "Try again" button. The refusal names the hall that most likely has space (`nextHall`), or says that none has (`all_halls_full`). A visitor never tries the same hall twice, and when a hint points at a hall already tried, the halls are tried in order.
 - FR-8: "Change hall" is always available in the menu. It lists the halls that have people, plus the next empty one, for example "Hall 1 · 32 people", "Hall 2 · Full", "Hall 3 · 4 people". Picking one leaves the current hall and joins the new one. The nickname is kept if it is free, and any held cushion is released. Counts may be a few seconds old.
 - FR-9: A live counter shows the number of people in the current hall, for example "18 people here".
 - FR-10: "Invite a friend" copies a link to the current hall. If that hall is full when the friend opens it, FR-7 applies.
@@ -218,15 +218,17 @@ A Durable Object has one `alarm()`. The room keeps an ordered list of due events
 Position updates are collected and sent as one snapshot per tick, not one message per move. Ritual start/end, joins and leaves are sent immediately.
 
 ### 5.5 Hall assignment and counts
-- **Directory:** each hall reports its people count to the hall directory whenever the count changes, at most once every `hall.reportIntervalSec`. An occupied hall also repeats its report every `hall.heartbeatSec`, so a restarted directory recovers by itself. The Worker reads the directory, so it never wakes empty halls just to count them.
+- **Directory:** each hall reports its people count to the hall directory whenever the count changes, at most once every `hall.reportIntervalSec`; a change inside the interval is reported at its end, so the last change is never left out. A hall that becomes full, or refuses someone, reports at once, so the next visitor is not sent to it. An occupied hall also repeats its report every `hall.heartbeatSec`, so a restarted directory recovers by itself. The directory treats a report older than three heartbeats as a hall that is gone. The Worker reads the directory, so it never wakes empty halls just to count them.
 - **Flow for a visitor:**
-  1. The client calls `GET /api/halls`. The response lists each hall's count and full flag, and a `suggestedHall`: one of the first `hall.suggestSpread` halls with space, chosen at random, so a burst of visitors does not all pick the same hall.
-  2. The client opens the WebSocket to the hall from the link, or to `suggestedHall` if the link names none.
-  3. The hall makes the final check. If it is full, it replies `hall_full` with fresh counts and the next hall with space, and closes the connection.
-  4. The client tries the next hall with space, up to `hall.joinRetries` times (FR-7).
-  5. If the directory shows every hall full, the client shows the "all halls are full" message (`all_halls_full`).
+  1. If the link names a hall, the client goes there. Otherwise, if this tab was in a hall before (its saved token names one), it goes back to that hall. Otherwise the client calls `GET /api/halls`, which answers `{ halls, suggestedHall, hallCount, maxPlayers }`: `halls` lists the halls with people plus the first empty one, each as `{ hall, count, full }`, and `suggestedHall` is one of the first `hall.suggestSpread` halls with space, chosen at random, so a burst of visitors does not all pick the same hall (null when every hall is full).
+  2. The client opens the WebSocket to that hall and sends `join`.
+  3. The hall makes the final check. If it is full, it tells the directory first, then replies with `error` `hall_full` and `nextHall` (or `all_halls_full` when no hall has space), and closes with code 4001.
+  4. The client follows `nextHall` to a hall it has not tried, up to `hall.joinRetries` halls in all, and shows "Hall 2 was full, so we placed you in Hall 3."
+  5. If `suggestedHall` is null or the hall says `all_halls_full`, the client shows the "all halls are full" message and does not connect.
 - **Stale counts are fine,** because step 3 is authoritative. A stale count can only cause extra retries, never an overfull hall.
-- **Directory unavailable:** the client falls back to trying halls 1, 2, 3 in order, up to `hall.joinRetries`.
+- **Directory unavailable:** `GET /api/halls` answers 503 (or does not answer within three seconds) and the client tries hall 1, then halls in order, up to `hall.joinRetries`. A refusal without a `nextHall` is handled the same way.
+- **"Change hall"** fetches the same list and shows each hall as "Hall 2 · 18 people", "empty", "full" or "you are here"; full halls and the current hall cannot be picked. Moving drops the saved token (it belongs to the old hall) and keeps the nickname if it is free.
+- `GET /api/halls` answers with `Cache-Control: no-store` and allows reading from the allowed origins only.
 - The directory stores only a small table of numbers and needs no persistent storage.
 
 ### 5.6 Connections and admission
@@ -268,7 +270,7 @@ JSON messages over one WebSocket. Every message has a `type`. Types and validati
 | `population` | `{ count }` |
 | `chanting_start` | `{ startAtMs, durationMs, audioId }` |
 | `chanting_end` | `{}` |
-| `error` | `{ code }` with codes `hall_full`, `all_halls_full`, `invalid_message`, `rate_limited`, `no_slot_free`, `not_allowed`, `idle_timeout` |
+| `error` | `{ code, nextHall? }` (`nextHall` only with `hall_full` and `all_halls_full`) with codes `hall_full`, `all_halls_full`, `invalid_message`, `rate_limited`, `no_slot_free`, `not_allowed`, `idle_timeout` |
 
 ### 6.3 Validation rules
 - Parse and validate every incoming message against its schema before using it. Unknown types, extra fields that change meaning, wrong types and oversize messages are rejected with `invalid_message`.

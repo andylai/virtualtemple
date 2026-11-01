@@ -55,4 +55,21 @@ describe('applyServerMessage', () => {
     const snapshot: ServerMessage = { type: 'snapshot', tick: 1, moves: [] };
     expect(applyServerMessage(joined, snapshot)).toBe(joined);
   });
+
+  it('remembers why a join was refused, and forgets it on the next welcome', () => {
+    const refused = applyServerMessage(INITIAL_HALL_STATE, {
+      type: 'error',
+      code: 'hall_full',
+      nextHall: 5,
+    });
+    expect(refused.refusal).toEqual({ code: 'hall_full', nextHall: 5 });
+    expect(applyServerMessage(refused, welcome).refusal).toBeNull();
+  });
+
+  it('ignores errors that are not about a full hall, and keeps a placement notice through welcome', () => {
+    const idle = applyServerMessage(INITIAL_HALL_STATE, { type: 'error', code: 'rate_limited' });
+    expect(idle).toBe(INITIAL_HALL_STATE);
+    const withNotice = { ...INITIAL_HALL_STATE, notice: { fromHall: 1, toHall: 2 } };
+    expect(applyServerMessage(withNotice, welcome).notice).toEqual({ fromHall: 1, toHall: 2 });
+  });
 });
