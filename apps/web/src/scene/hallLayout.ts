@@ -1,0 +1,135 @@
+import type { Point, TempleManifest } from '@temple/shared';
+
+type Hall = TempleManifest['hall'];
+
+/** Sizes of the blockout hall's furniture, in metres. Real art replaces them via manifest slots. */
+export const BLOCKOUT = {
+  floorThickness: 0.1,
+  wallHeight: 5,
+  wallThickness: 0.3,
+  altarDepth: 2,
+  altarHeight: 1.1,
+  altarWidthShare: 0.4,
+  statueWidth: 1,
+  statueHeight: 2.2,
+  cushionRadius: 0.4,
+  cushionHeight: 0.15,
+  lampSize: 0.18,
+  rackHeight: 0.9,
+  rackWidth: 0.5,
+  rackPadding: 0.5,
+} as const;
+
+/** A box described by its centre and size. */
+export interface Box {
+  x: number;
+  y: number;
+  z: number;
+  width: number;
+  height: number;
+  depth: number;
+}
+
+/** Everything the scene needs to draw the blockout hall, worked out from the manifest. */
+export interface HallLayout {
+  floor: readonly Point[];
+  walls: readonly Box[];
+  altar: Box;
+  statue: Box;
+  /** The low shelf the lamps stand on, spanning all lamp slots. */
+  lampRack: Box | null;
+  cushions: Hall['cushions'];
+  lampSlots: Hall['lampSlots'];
+  /** The point the camera looks at. */
+  focus: Point;
+  bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
+}
+
+function boundsOf(polygon: readonly Point[]): HallLayout['bounds'] {
+  const xs = polygon.map((point) => point.x);
+  const zs = polygon.map((point) => point.z);
+  return {
+    minX: Math.min(...xs),
+    maxX: Math.max(...xs),
+    minZ: Math.min(...zs),
+    maxZ: Math.max(...zs),
+  };
+}
+
+function rackFor(slots: Hall['lampSlots']): Box | null {
+  if (slots.length === 0) {
+    return null;
+  }
+  const xs = slots.map((slot) => slot.x);
+  const zs = slots.map((slot) => slot.z);
+  const { rackHeight, rackWidth, rackPadding } = BLOCKOUT;
+  const depth = Math.max(...zs) - Math.min(...zs) + 2 * rackPadding;
+  const center = {
+    x: (Math.min(...xs) + Math.max(...xs)) / 2,
+    z: (Math.min(...zs) + Math.max(...zs)) / 2,
+  };
+  return box(center, rackHeight / 2, rackWidth, rackHeight, depth);
+}
+
+function box(center: Point, y: number, width: number, height: number, depth: number): Box {
+  return { x: center.x, y, z: center.z, width, height, depth };
+}
+
+/**
+ * Works out where the blockout hall's parts go from the manifest's hall template.
+ *
+ * The altar sits just behind the walkable area (smaller z), and three walls enclose the other
+ * sides, so the walkable area always lies inside the hall.
+ *
+ * @param hall - The `hall` section of a validated manifest.
+ */
+export function buildHallLayout(hall: Hall): HallLayout {
+  const bounds = boundsOf(hall.walkableArea);
+  const { wallHeight, wallThickness, altarDepth, altarHeight, altarWidthShare } = BLOCKOUT;
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const width = bounds.maxX - bounds.minX;
+  const backZ = bounds.minZ - altarDepth;
+  const sideDepth = bounds.maxZ - backZ;
+  const sideZ = (bounds.maxZ + backZ) / 2;
+  const wallY = wallHeight / 2;
+  const altarCenter = { x: centerX, z: bounds.minZ - altarDepth / 2 };
+  return {
+    floor: hall.walkableArea,
+    walls: [
+      box(
+        { x: centerX, z: backZ - wallThickness / 2 },
+        wallY,
+        width + 2 * wallThickness,
+        wallHeight,
+        wallThickness,
+      ),
+      box(
+        { x: bounds.minX - wallThickness / 2, z: sideZ },
+        wallY,
+        wallThickness,
+        wallHeight,
+        sideDepth,
+      ),
+      box(
+        { x: bounds.maxX + wallThickness / 2, z: sideZ },
+        wallY,
+        wallThickness,
+        wallHeight,
+        sideDepth,
+      ),
+    ],
+    altar: box(altarCenter, altarHeight / 2, width * altarWidthShare, altarHeight, altarDepth),
+    statue: box(
+      altarCenter,
+      altarHeight + BLOCKOUT.statueHeight / 2,
+      BLOCKOUT.statueWidth,
+      BLOCKOUT.statueHeight,
+      BLOCKOUT.statueWidth,
+    ),
+    lampRack: rackFor(hall.lampSlots),
+    cushions: hall.cushions,
+    lampSlots: hall.lampSlots,
+    focus: { x: centerX, z: (bounds.minZ + bounds.maxZ) / 2 },
+    bounds,
+  };
+}

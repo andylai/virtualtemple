@@ -19,4 +19,10 @@ export default tseslint.config(
       'max-lines-per-function': ['error', { max: 60, skipBlankLines: true, skipComments: true }],
     },
   },
+  {
+    // Build scripts run in Node and print their result to the terminal on purpose.
+    files: ['**/scripts/**/*.mjs'],
+    languageOptions: { globals: { console: 'readonly', process: 'readonly' } },
+    rules: { 'no-console': 'off' },
+  },
 );

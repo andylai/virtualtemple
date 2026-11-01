@@ -12,8 +12,6 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TempleRoom", "HallDirectory"] }],
   "vars": {
     "TEMPLE_SLUG": "flagship",
-    "HALL_COUNT": "20",
-    "HALL_MAX_PLAYERS": "50",
     "ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173",
   },
 }

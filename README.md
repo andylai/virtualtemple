@@ -4,6 +4,6 @@ An online Buddhist virtual temple for a Malaysian audience. See [AGENTS.md](AGEN
 
 ```bash
 pnpm install
-pnpm dev     # http://localhost:5173 (needs no Cloudflare account)
+pnpm dev     # http://localhost:5173 (needs no Cloudflare account); add ?debug=1&stress=50 for a frame-rate check
 pnpm test
 ```

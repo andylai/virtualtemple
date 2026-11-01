@@ -1,0 +1,315 @@
+{
+  "slug": "flagship",
+  "name": {
+    "en": "Flagship Temple (placeholder)"
+  },
+  "tradition": "undecided",
+  "languages": ["en"],
+  "timezone": "Asia/Kuala_Lumpur",
+  "chantingSchedule": ["05:00", "18:00"],
+  "specialDays": [],
+  "hall": {
+    "template": "blockout",
+    "walkableArea": [
+      {
+        "x": -6,
+        "z": -4
+      },
+      {
+        "x": 6,
+        "z": -4
+      },
+      {
+        "x": 6,
+        "z": 9
+      },
+      {
+        "x": -6,
+        "z": 9
+      }
+    ],
+    "cushions": [
+      {
+        "id": "cushion-1",
+        "x": -4.5,
+        "z": 0,
+        "facing": 0
+      },
+      {
+        "id": "cushion-2",
+        "x": -1.5,
+        "z": 0,
+        "facing": 0
+      },
+      {
+        "id": "cushion-3",
+        "x": 1.5,
+        "z": 0,
+        "facing": 0
+      },
+      {
+        "id": "cushion-4",
+        "x": 4.5,
+        "z": 0,
+        "facing": 0
+      },
+      {
+        "id": "cushion-5",
+        "x": -4.5,
+        "z": 3,
+        "facing": 0
+      },
+      {
+        "id": "cushion-6",
+        "x": -1.5,
+        "z": 3,
+        "facing": 0
+      },
+      {
+        "id": "cushion-7",
+        "x": 1.5,
+        "z": 3,
+        "facing": 0
+      },
+      {
+        "id": "cushion-8",
+        "x": 4.5,
+        "z": 3,
+        "facing": 0
+      },
+      {
+        "id": "cushion-9",
+        "x": -4.5,
+        "z": 6,
+        "facing": 0
+      },
+      {
+        "id": "cushion-10",
+        "x": -1.5,
+        "z": 6,
+        "facing": 0
+      },
+      {
+        "id": "cushion-11",
+        "x": 1.5,
+        "z": 6,
+        "facing": 0
+      },
+      {
+        "id": "cushion-12",
+        "x": 4.5,
+        "z": 6,
+        "facing": 0
+      }
+    ],
+    "lampSlots": [
+      {
+        "id": "lamp-1",
+        "x": 5.5,
+        "z": -3.5
+      },
+      {
+        "id": "lamp-2",
+        "x": 5.5,
+        "z": -2.5
+      },
+      {
+        "id": "lamp-3",
+        "x": 5.5,
+        "z": -1.5
+      },
+      {
+        "id": "lamp-4",
+        "x": 5.5,
+        "z": -0.5
+      },
+      {
+        "id": "lamp-5",
+        "x": 5.5,
+        "z": 0.5
+      },
+      {
+        "id": "lamp-6",
+        "x": 5.5,
+        "z": 1.5
+      },
+      {
+        "id": "lamp-7",
+        "x": 5.5,
+        "z": 2.5
+      },
+      {
+        "id": "lamp-8",
+        "x": 5.5,
+        "z": 3.5
+      }
+    ],
+    "slots": {
+      "altarBackdrop": null,
+      "banner": null,
+      "plaque": null,
+      "statue": null
+    }
+  },
+  "audio": {
+    "ambient": "audio/ambient.opus",
+    "chanting": "audio/chanting.opus",
+    "sfx": {
+      "bell": "audio/bell.opus",
+      "beads": "audio/beads.opus",
+      "lamp": "audio/lamp.opus"
+    }
+  },
+  "rituals": ["greet", "bow", "beads", "lamp"],
+  "nicknames": {
+    "adjectives": [
+      {
+        "id": "calm",
+        "text": {
+          "en": "Calm"
+        }
+      },
+      {
+        "id": "gentle",
+        "text": {
+          "en": "Gentle"
+        }
+      },
+      {
+        "id": "quiet",
+        "text": {
+          "en": "Quiet"
+        }
+      },
+      {
+        "id": "bright",
+        "text": {
+          "en": "Bright"
+        }
+      },
+      {
+        "id": "kind",
+        "text": {
+          "en": "Kind"
+        }
+      },
+      {
+        "id": "still",
+        "text": {
+          "en": "Still"
+        }
+      },
+      {
+        "id": "soft",
+        "text": {
+          "en": "Soft"
+        }
+      },
+      {
+        "id": "steady",
+        "text": {
+          "en": "Steady"
+        }
+      },
+      {
+        "id": "warm",
+        "text": {
+          "en": "Warm"
+        }
+      },
+      {
+        "id": "clear",
+        "text": {
+          "en": "Clear"
+        }
+      },
+      {
+        "id": "humble",
+        "text": {
+          "en": "Humble"
+        }
+      },
+      {
+        "id": "patient",
+        "text": {
+          "en": "Patient"
+        }
+      }
+    ],
+    "nouns": [
+      {
+        "id": "lotus",
+        "text": {
+          "en": "Lotus"
+        }
+      },
+      {
+        "id": "tree",
+        "text": {
+          "en": "Tree"
+        }
+      },
+      {
+        "id": "mist",
+        "text": {
+          "en": "Mist"
+        }
+      },
+      {
+        "id": "stream",
+        "text": {
+          "en": "Stream"
+        }
+      },
+      {
+        "id": "stone",
+        "text": {
+          "en": "Stone"
+        }
+      },
+      {
+        "id": "cloud",
+        "text": {
+          "en": "Cloud"
+        }
+      },
+      {
+        "id": "moon",
+        "text": {
+          "en": "Moon"
+        }
+      },
+      {
+        "id": "river",
+        "text": {
+          "en": "River"
+        }
+      },
+      {
+        "id": "pine",
+        "text": {
+          "en": "Pine"
+        }
+      },
+      {
+        "id": "lantern",
+        "text": {
+          "en": "Lantern"
+        }
+      },
+      {
+        "id": "bamboo",
+        "text": {
+          "en": "Bamboo"
+        }
+      },
+      {
+        "id": "dawn",
+        "text": {
+          "en": "Dawn"
+        }
+      }
+    ]
+  },
+  "donation": null
+}

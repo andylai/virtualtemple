@@ -1,5 +1,6 @@
 import { directoryName, hallRoomName, parseHallNumber } from '@temple/shared';
 import { routePartykitRequest } from 'partyserver';
+import { configFor } from './config';
 
 export { HallDirectory } from './HallDirectory';
 export { TempleRoom } from './TempleRoom';
@@ -22,7 +23,7 @@ async function handleSocket(request: Request, env: Env): Promise<Response> {
     return new Response('Expected a WebSocket upgrade', { status: 426 });
   }
   const url = new URL(request.url);
-  const hall = parseHallNumber(url.searchParams.get('hall'), Number(env.HALL_COUNT));
+  const hall = parseHallNumber(url.searchParams.get('hall'), configFor(env).hall.count);
   if (hall === null) {
     return new Response('Invalid hall', { status: 400 });
   }

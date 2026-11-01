@@ -1,9 +1,10 @@
 import { SELF, evictAllDurableObjects } from 'cloudflare:test';
+import { DEFAULT_CONFIG } from '@temple/shared';
 import { describe, expect, it, vi } from 'vitest';
 
 const ORIGIN = 'http://localhost:5173';
-const HALL_CAPACITY = 50;
-const SIMULTANEOUS_VISITORS = 60;
+const HALL_CAPACITY = DEFAULT_CONFIG.hall.maxPlayers;
+const SIMULTANEOUS_VISITORS = HALL_CAPACITY + 10;
 const HALL_FULL_CLOSE_CODE = 4001;
 
 interface TestClient {
@@ -56,7 +57,13 @@ describe('S1/S3: Worker forwards a WebSocket to the hall', () => {
     );
     const ok = { ...upgrade, Origin: ORIGIN };
     expect((await SELF.fetch('http://example.com/ws?hall=0', { headers: ok })).status).toBe(400);
-    expect((await SELF.fetch('http://example.com/ws?hall=21', { headers: ok })).status).toBe(400);
+    expect(
+      (
+        await SELF.fetch(`http://example.com/ws?hall=${DEFAULT_CONFIG.hall.count + 1}`, {
+          headers: ok,
+        })
+      ).status,
+    ).toBe(400);
     expect((await SELF.fetch('http://example.com/ws?hall=x', { headers: ok })).status).toBe(400);
   });
 

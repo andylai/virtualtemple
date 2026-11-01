@@ -296,6 +296,7 @@ One manifest ships with the app. The room, Worker and frontend read it through a
 }
 ```
 
+- Coordinates are in metres on the hall floor: `x` runs left to right and the altar is at the smaller-`z` end. `facing` is in degrees, with 0 facing the altar. The walkable area is a polygon; every cushion must lie inside it. Slots set to `null` use the blockout placeholder.
 - Dates and values in the examples above are illustrative placeholders and have not been verified. Real special-day dates come from an official calendar and are checked by the religious advisor before launch.
 - The manifest is validated at build time against a schema; an invalid manifest fails the build.
 - Asset URLs are relative to an asset base URL from configuration, so assets can move from `public/` to R2 without code changes.

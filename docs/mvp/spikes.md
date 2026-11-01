@@ -11,7 +11,7 @@ Each spike answers one technical unknown from [plan.md](plan.md) before anything
 | S3 | Can the Worker validate a request and forward a WebSocket to the right hall? | Pass, with one finding (name encoding) |
 | S4 | Does the hall directory accept reports and answer reads from the Worker? | Pass |
 | S5 | Does audio unlock after a tap on iOS Safari and Android Chrome? | Not done: needs a real phone and an audio layer (M5) |
-| S6 | Does a 3D scene with 50 avatars hold 30 fps on a mid-range phone? | Not done: needs the 3D scene (M1) and a real phone |
+| S6 | Does a 3D scene with 50 avatars hold 30 fps on a mid-range phone? | Desktop browser: pass (75 fps). Phone: not done yet |
 | S7 | Can Durable Object and WebSocket behaviour be tested automatically, including simultaneous joins? | Pass |
 
 ## Findings
@@ -36,6 +36,12 @@ Each spike answers one technical unknown from [plan.md](plan.md) before anything
 - `@cloudflare/vitest-plugin` runs the Worker and its Durable Objects in the Workers runtime, including WebSockets and hibernation. The older package `@cloudflare/vitest-pool-workers` is deprecated and was replaced by this one.
 - **Race test:** 60 visitors connecting at the same time to a hall with capacity 50 resulted in exactly 50 admitted and 10 refused with close code 4001.
 - **Finding:** capacity must be checked against admitted connections, not open connections. An open connection is counted before its own check runs, so counting open connections would make many simultaneous joiners see each other and all be refused. The spike counts connections whose state says `admitted` and admits in the same synchronous step. Spec FR-6 and ADR-010 are updated.
+
+### S6 — 3D performance (partial, M1)
+- The blockout hall with 50 capsule stand-ins (each its own mesh and draw call, bobbing every frame) ran at about 75 fps in the desktop app's built-in browser on a Mac (`?debug=1&stress=50`). The 75 fps is the display refresh limit, so it only shows there is headroom on this machine. It is not a phone result.
+- The same page works at a 375 px phone width (the overlay and Enter button fit). The camera crops the hall in portrait; framing for portrait is an M7 item.
+- Still needed: run `pnpm --filter @temple/web dev:lan`, open the Network address on a real mid-range phone with `?debug=1&stress=50`, and record the frame rate here.
+- JavaScript size: 334 kB gzip (1.26 MB raw), mostly Three.js. The budget is 400 kB.
 
 ## Setup findings (tooling)
 - TypeScript must stay on 6.0.x: `typescript-eslint` supports TypeScript below 6.1.

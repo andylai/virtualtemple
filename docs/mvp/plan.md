@@ -342,3 +342,21 @@ Temple uploads and multi-temple onboarding (intent.md section 11), donations (un
 Details and findings: [spikes.md](spikes.md). The code from the spikes (`TempleRoom`, `HallDirectory`, Worker routing, a throwaway web page) is real and tested, and M2 and M3 build on it.
 
 Next: M1 (skeleton, including the blockout hall and the phone performance spike).
+
+---
+
+## 14. M1 status (2026-11-01)
+
+| Task | Status |
+|---|---|
+| M1-1 Config module | Done: `packages/shared/src/config.ts`, validated defaults with environment overrides; the Worker now reads its limits through it. |
+| M1-2 Manifest | Done: Zod schema with cross-field checks (cushions inside the walkable area, unique ids, real dates, safe asset paths), `manifests/flagship.json`, and a test that validates every file in `manifests/`. |
+| M1-3 App shell | Done: loading card, Enter button, WebGL check with a clear message, orbit camera, pixel ratio capped at 2. Audio unlock on Enter arrives with M5. |
+| M1-4 i18n | Done: English catalog, `t()`, language pick from the browser, type-checked catalogs and a test that every used key exists. |
+| M1-5 Blockout hall | Done: floor, three walls, altar, statue, lamp rack, 12 cushions and 8 lamp slots, all drawn from the manifest. |
+| M1-6 Bundle budget | Done: checked on every build; 334 kB measured, 400 kB allowed. |
+| M1-7 Spike S6 | Partly done: 50 stand-ins run at the display limit on desktop; the real-phone check is still open (see spikes.md). |
+
+The throwaway M0 web page (`SpikePage`) was removed. The Worker spike code and its tests remain and are reused in M2. Until M2, the web app does not talk to the Worker, so two browser tabs no longer show each other.
+
+Next: M2 (hall core: people join one hall, see each other move, and leave).

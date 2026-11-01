@@ -31,21 +31,26 @@ pnpm format:check   # Prettier
 
 After changing `apps/worker/wrangler.jsonc`, regenerate bindings types: `pnpm --filter @temple/worker types`.
 
+The web app alone (no Worker needed until M2): `pnpm --filter @temple/web dev`, then open `http://localhost:5173`. Add `?debug=1&stress=50` for the frame-rate overlay and 50 stand-in avatars. For a phone on the same Wi-Fi use `pnpm --filter @temple/web dev:lan` and open the Network URL it prints.
+
+`pnpm build` also checks the JavaScript size against `apps/web/bundle-budget.json`.
+
 ## Layout
 
 ```
-apps/web            frontend (Vite + React; 3D scene arrives in M1)
+apps/web            frontend: Vite + React + React Three Fiber (app shell, blockout hall, i18n)
 apps/worker         Worker, TempleRoom (hall) and HallDirectory Durable Objects
 packages/shared     message types, constants, validation helpers used by both sides
 packages/room-logic plain TypeScript room rules with no Cloudflare imports (unit-testable)
-manifests/          temple manifests (flagship.json arrives in M1)
+manifests/          temple manifests (flagship.json); every file is validated by a test
 docs/mvp/           intent, spec, plan, spikes
 ```
 
 ## Conventions
 
 - Terminology: visitors only see "hall" and "people". "room", "instance" and "server" stay internal (spec 3.2).
-- No magic numbers or magic strings: tunable values live in the config module (spec 4.3) or the manifest.
+- No magic numbers or magic strings: tunable values live in the config module (`packages/shared/src/config.ts`, spec 4.3) or the manifest; visual sizes and colours are named constants. The Worker reads its limits through `loadConfig(env)`, so `wrangler dev --var HALL_MAX_PLAYERS:2` overrides a default.
+- Visitor-facing text goes through `t('key')`; add the key to `apps/web/src/i18n/en.ts`. A test fails if the source uses a key that does not exist, and the types fail if a language misses a key.
 - Validate all external input (messages, URL parameters, manifest) before use. There is no free-text input anywhere.
 - Structured logging only, no `console.log` (ESLint enforces `no-console`). Log fields: `correlation_id`, `temple_id`, `hall_id`. Never log personal data.
 - Public and internal members have TSDoc comments that explain why, not what.
@@ -63,8 +68,10 @@ docs/mvp/           intent, spec, plan, spikes
 - ADR-004 — A `HallDirectory` Durable Object tracks hall counts; the hall's own check is authoritative — The Worker can pick a hall without waking every hall, and stale counts can only cause retries, never an overfull hall.
 - ADR-005 — The temple is a manifest (assets, rituals, schedule, languages) — Phase 2 adds temples by adding data, not code.
 - ADR-006 — pnpm workspaces monorepo — Shared packages with strict dependency boundaries and fast installs.
-- ADR-007 — Zod for message and manifest validation (planned, installed in M1) — One schema gives both runtime validation and TypeScript types; bundle size is checked against the budget in M1.
+- ADR-007 — Zod for config, manifest and message validation — One schema gives both runtime validation and TypeScript types; the bundle budget (ADR-012) keeps its size in check.
 - ADR-008 — No user-generated text; nicknames are word IDs resolved on the server — Removes moderation and most injection risks.
 - ADR-009 — One scheduler per hall — A Durable Object has a single `alarm()`, so all due events share one ordered list armed for the earliest.
 - ADR-010 — Capacity counts admitted connections, not open connections — Counting open connections rejects everyone when many arrive at once because each joiner sees the others; confirmed by the 60-into-50 test (spikes.md S7).
 - ADR-011 — Tests run in the Workers runtime with `@cloudflare/vitest-plugin` — Durable Object and WebSocket behaviour, including hibernation, is exercised for real instead of mocked (spikes.md S7).
+- ADR-012 — A gzip bundle budget is enforced on every web build — Mobile load time depends on JavaScript size; the budget is set from the measured size plus headroom (334 kB measured, 400 kB allowed at M1) and raised only on purpose.
+- ADR-013 — Hall geometry (walkable area, cushions, lamp slots) lives in the manifest and the blockout hall is drawn from it — Real art and other temples change data, not code (spec 7, intent 11).

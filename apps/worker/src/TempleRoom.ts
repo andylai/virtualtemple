@@ -1,5 +1,6 @@
 import { CLOSE_CODE, ERROR_CODE, directoryName } from '@temple/shared';
 import { hasSpace } from '@temple/room-logic';
+import { configFor } from './config';
 import { Server, type Connection, type WSMessage } from 'partyserver';
 
 /** Per-connection state. It is stored in the WebSocket attachment, so it survives hibernation. */
@@ -19,7 +20,7 @@ export class TempleRoom extends Server<Env> {
   private readonly incarnation = crypto.randomUUID();
 
   override onConnect(connection: Connection): void {
-    const maxPlayers = Number(this.env.HALL_MAX_PLAYERS);
+    const { maxPlayers } = configFor(this.env).hall;
     // No await between the check and setState: the check and the admission are one step.
     if (!hasSpace(this.admittedCount(), maxPlayers)) {
       connection.send(JSON.stringify({ type: 'error', code: ERROR_CODE.hallFull }));
