@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { AVATAR_VARIANT_COUNT } from './constants';
-import { LANGUAGE_CODES } from './manifest';
+import { LANGUAGE_CODES, RITUAL_IDS } from './manifest';
 
 /** Largest coordinate a client may send, so absurd numbers are refused before any geometry runs. */
 export const MAX_COORDINATE = 1000;
@@ -11,6 +11,11 @@ const facing = z.number().finite().min(-360).max(360);
 const nickname = z.object({ adjectiveId: itemId, nounId: itemId });
 const playerId = z.string().regex(/^[A-Za-z0-9_-]{8,64}$/);
 const resumeToken = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
+const ritualId = z.enum(RITUAL_IDS);
+
+/** A ritual someone is performing now, and the cushion they use if any. */
+export const ritualStateSchema = z.object({ ritualId, slotId: itemId.optional() });
+export type RitualState = z.infer<typeof ritualStateSchema>;
 
 /** Two word ids that together make a visitor's nickname. The words come from the manifest. */
 export type NicknameIds = z.infer<typeof nickname>;
@@ -27,6 +32,8 @@ export const playerViewSchema = z.object({
   x: coordinate,
   z: coordinate,
   facing,
+  /** What they are performing right now, or null. */
+  ritual: ritualStateSchema.nullable(),
 });
 export type PlayerView = z.infer<typeof playerViewSchema>;
 
@@ -39,6 +46,8 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
     resumeToken: resumeToken.optional(),
   }),
   z.strictObject({ type: z.literal('move'), x: coordinate, z: coordinate, facing }),
+  z.strictObject({ type: z.literal('ritual_start'), ritualId }),
+  z.strictObject({ type: z.literal('ritual_stop') }),
   z.strictObject({ type: z.literal('ping') }),
 ]);
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
@@ -53,6 +62,8 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
     nickname,
     avatarId: playerViewSchema.shape.avatarId,
     players: z.array(playerViewSchema),
+    /** The lamps that are lit now. */
+    lamps: z.array(z.object({ slotId: itemId, ownerId: playerId })),
     population: z.number().int().nonnegative(),
     serverTimeMs: z.number().int().nonnegative(),
     positionSendHz: z.number().positive(),
@@ -66,6 +77,18 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
     moves: z.array(z.object({ playerId, x: coordinate, z: coordinate, facing })),
   }),
   z.object({ type: z.literal('population'), count: z.number().int().nonnegative() }),
+  z.object({ type: z.literal('ritual_started'), playerId, ritualId, slotId: itemId.optional() }),
+  z.object({ type: z.literal('ritual_ended'), playerId }),
+  /** Only to the person who asked to bow: walk to this cushion. */
+  z.object({
+    type: z.literal('ritual_walk'),
+    slotId: itemId,
+    x: coordinate,
+    z: coordinate,
+    facing,
+  }),
+  z.object({ type: z.literal('lamp_lit'), slotId: itemId, ownerId: playerId }),
+  z.object({ type: z.literal('lamp_out'), slotId: itemId }),
   z.object({
     type: z.literal('error'),
     code: z.enum([
@@ -74,6 +97,8 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
       'invalid_message',
       'rate_limited',
       'not_allowed',
+      'no_slot_free',
+      'lamp_limit',
       'idle_timeout',
     ]),
     /** With `hall_full`: the hall that most likely has space, or null when none was found. */

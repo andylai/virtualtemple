@@ -30,16 +30,36 @@ describe('buildHallLayout', () => {
     expect(layout.lampSlots).toHaveLength(flagshipManifest.hall.lampSlots.length);
   });
 
-  it('builds a lamp rack that spans every lamp slot', () => {
-    const rack = layout.lampRack!;
+  it('builds a shelf on each side of the altar, and every lamp place stands on one', () => {
+    expect(layout.lampRacks).toHaveLength(2);
+    const [left, right] = [...layout.lampRacks].sort((a, b) => a.x - b.x);
+    expect(left!.x).toBeLessThan(layout.altar.x);
+    expect(right!.x).toBeGreaterThan(layout.altar.x);
     for (const slot of layout.lampSlots) {
-      expect(Math.abs(slot.z - rack.z)).toBeLessThanOrEqual(rack.depth / 2);
-      expect(Math.abs(slot.x - rack.x)).toBeLessThanOrEqual(rack.width / 2);
+      const shelf = slot.x < layout.altar.x ? left! : right!;
+      expect(Math.abs(slot.x - shelf.x)).toBeLessThanOrEqual(shelf.width / 2);
+      expect(Math.abs(slot.z - shelf.z)).toBeLessThanOrEqual(shelf.depth / 2);
     }
   });
 
-  it('has no lamp rack when there are no lamp slots', () => {
-    expect(buildHallLayout({ ...flagshipManifest.hall, lampSlots: [] }).lampRack).toBeNull();
+  it('keeps the shelves clear of the altar', () => {
+    const altarLeft = layout.altar.x - layout.altar.width / 2;
+    const altarRight = layout.altar.x + layout.altar.width / 2;
+    for (const shelf of layout.lampRacks) {
+      const near = shelf.x < layout.altar.x ? shelf.x + shelf.width / 2 : shelf.x - shelf.width / 2;
+      expect(shelf.x < layout.altar.x ? near : -near).toBeLessThan(
+        shelf.x < layout.altar.x ? altarLeft : -altarRight,
+      );
+    }
+  });
+
+  it('fills the lamp places left, right, left, right, so the first lamps look balanced', () => {
+    const sides = layout.lampSlots.slice(0, 6).map((slot) => Math.sign(slot.x - layout.altar.x));
+    expect(sides).toEqual([-1, 1, -1, 1, -1, 1]);
+  });
+
+  it('has no shelves when there are no lamp places', () => {
+    expect(buildHallLayout({ ...flagshipManifest.hall, lampSlots: [] }).lampRacks).toEqual([]);
   });
 
   it('looks at the middle of the walkable area', () => {

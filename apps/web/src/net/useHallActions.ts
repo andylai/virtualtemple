@@ -1,3 +1,4 @@
+import type { RitualId } from '@temple/shared';
 import { useCallback, useEffect } from 'react';
 import type { HallClient } from './hallClient';
 
@@ -9,6 +10,14 @@ export interface HallActions {
   switchHall: (hall: number) => void;
   /** Hides the "placed in another hall" message. */
   clearNotice: () => void;
+  /** Asks the hall to start a ritual. */
+  startRitual: (ritualId: RitualId) => void;
+  /** Asks the hall to end the visitor's ritual and free their cushion. */
+  stopRitual: () => void;
+  /** Hides a toast that was shown long enough. */
+  dismissToast: (id: number) => void;
+  /** Hides the message that a ritual did not start. */
+  clearRitualNotice: () => void;
 }
 
 /** Gives the interface its actions on the hall client, and disconnects when the page goes away. */
@@ -20,14 +29,34 @@ export function useHallActions(client: HallClient): HallActions {
     },
     [client],
   );
-  const join = useCallback(() => void client.flow.start(), [client]);
-  const switchHall = useCallback(
-    (hall: number) => client.flow.switchTo(hall, client.store.getState().nickname),
+  const update = useCallback(
+    (
+      change: (
+        state: ReturnType<typeof client.store.getState>,
+      ) => ReturnType<typeof client.store.getState>,
+    ) => client.store.setState(change(client.store.getState())),
     [client],
   );
-  const clearNotice = useCallback(
-    () => client.store.setState({ ...client.store.getState(), notice: null }),
-    [client],
-  );
-  return { join, switchHall, clearNotice };
+  return {
+    join: useCallback(() => void client.flow.start(), [client]),
+    switchHall: useCallback(
+      (hall: number) => client.flow.switchTo(hall, client.store.getState().nickname),
+      [client],
+    ),
+    clearNotice: useCallback(() => update((state) => ({ ...state, notice: null })), [update]),
+    startRitual: useCallback(
+      (ritualId: RitualId) => client.connection.startRitual(ritualId),
+      [client],
+    ),
+    stopRitual: useCallback(() => client.connection.stopRitual(), [client]),
+    dismissToast: useCallback(
+      (id: number) =>
+        update((state) => ({ ...state, toasts: state.toasts.filter((toast) => toast.id !== id) })),
+      [update],
+    ),
+    clearRitualNotice: useCallback(
+      () => update((state) => ({ ...state, ritualNotice: null })),
+      [update],
+    ),
+  };
 }

@@ -57,7 +57,7 @@ These are done in task M0-1.
 
 Two non-code tracks run alongside the milestones:
 
-- **Art and audio track:** art brief once O-2 is decided; hall model, statue, cushions, lamp rack, avatar with greet/bow/beads/lamp animations; ambient, chanting and SFX audio with clear licences; credits list. Delivered as files plus manifest entries (M7 swaps them in).
+- **Art and audio track:** art brief once O-2 is decided; hall model, statue, cushions, lamp rack, avatar with greet/bow/lamp animations; ambient, chanting and SFX audio with clear licences; credits list. Delivered as files plus manifest entries (M7 swaps them in).
 - **Content track:** nickname word lists, translations, ritual names per language, chanting schedule, verified special-day dates for the launch year, religious advisor review of wording.
 
 ---
@@ -147,7 +147,7 @@ Done when: spec acceptance criteria 5, 5a, 5b and 5c pass.
 
 | Task | Description |
 |---|---|
-| M4-1 | Ritual registry in `room-logic`, built from the manifest (`greet`, `bow`, `beads`, `lamp`), with cooldowns and validation of the ritual ID. |
+| M4-1 | Ritual registry in `room-logic`, built from the manifest (`greet`, `bow`, `lamp`), with cooldowns and validation of the ritual ID. |
 | M4-2 | Seats: server-assigned cushions; `bow` and `sit` reserve one, `ritual_stop`, `stand` and leaving release it; `no_slot_free` handling. |
 | M4-3 | Lamps: server-assigned slots, owner limit, expiry after `lamp.durationSec`. |
 | M4-4 | Scheduler in the room: an ordered list of due events (lamp expiries now, chanting next in M5) and a single `alarm()` always armed for the earliest one. |
@@ -165,7 +165,7 @@ Done when: spec acceptance criterion 2 passes.
 | Task | Description |
 |---|---|
 | M5-1 | Audio engine: three layers (ambient, chanting, SFX) with separate volumes, defaults from config, unlock on "Enter". |
-| M5-2 | SFX hooks for bell, beads and lamp. Personal chanting that stops when a communal session starts. |
+| M5-2 | SFX hooks for bell and lamp. Personal chanting that stops when a communal session starts. |
 | M5-3 | Time handling for Malaysia time (MYT): compute the next scheduled time from the manifest's time zone without a heavy dependency; fully unit-tested with a fake clock. |
 | M5-4 | Room: schedule regular chanting and special-day chanting on the shared scheduler; broadcast `chanting_start` and `chanting_end`; include any active session in `welcome`. |
 | M5-5 | Client: clock offset from `serverTimeMs`, play chanting at `now − startAt`, preload before the start time and handle a late-loading client (P-5). |
@@ -353,7 +353,7 @@ Next: M1 (skeleton, including the blockout hall and the phone performance spike)
 | M1-2 Manifest | Done: Zod schema with cross-field checks (cushions inside the walkable area, unique ids, real dates, safe asset paths), `manifests/flagship.json`, and a test that validates every file in `manifests/`. |
 | M1-3 App shell | Done: loading card, Enter button, WebGL check with a clear message, orbit camera, pixel ratio capped at 2. Audio unlock on Enter arrives with M5. |
 | M1-4 i18n | Done: English catalog, `t()`, language pick from the browser, type-checked catalogs and a test that every used key exists. |
-| M1-5 Blockout hall | Done: floor, three walls, altar, statue, lamp rack, 12 cushions and 8 lamp slots, all drawn from the manifest. |
+| M1-5 Blockout hall | Done: floor, three walls, altar, statue, 12 cushions and 8 lamp places on a shelf either side of the altar (changed in M4), all drawn from the manifest. |
 | M1-6 Bundle budget | Done: checked on every build; 334 kB measured, 400 kB allowed. |
 | M1-7 Spike S6 | Partly done: 50 stand-ins run at the display limit on desktop; the real-phone check is still open (see spikes.md). |
 
@@ -402,4 +402,41 @@ Tests: 226 in total (shared 73, room-logic 38, web 82, worker 33). The worker te
 
 Known limits: the directory is in memory, so after it restarts every hall looks empty until it next reports (up to one heartbeat), and visitors may be sent to a full hall and follow a hint. `GET /api/halls` has no rate limit yet (M8). Hall names are plain "Hall N" (open question O-8).
 
-Next: M4 (rituals: greet, bow with cushions, beads, lamp, and the activity toasts).
+Next: M4 (rituals: greet, bow with cushions, lamp, and the activity toasts).
+
+---
+
+## 17. M4 status (2026-11-01)
+
+| Task | Status |
+|---|---|
+| M4-1 Ritual registry | Done: definitions in `packages/shared` (`RITUALS`), the temple's manifest chooses which are offered; cooldown per person, unknown or unoffered rituals refused. |
+| M4-2 Seats | Done: `RitualEngine` hands out the nearest free cushion, reserves it, starts the bow on arrival and puts the person on the cushion, frees it when stopped, finished, walked away from, abandoned or when the person leaves. |
+| M4-3 Lamps | Done: first free lamp place, one lit lamp per person, expiry after `lamp.durationSec`, kept in storage so lamps survive hibernation. |
+| M4-4 Scheduler | Done as `DueQueue` plus exact timers for short events and the alarm for long ones (ADR-021). Chanting joins it in M5. |
+| M4-5 Client | Built: keys 3, 1/E/Space, 2, L; ritual buttons and a Stop button; walking to the cushion; walking by hand cancels a bow; placeholder animations (lean, bob, pulse); lamps glow when lit. |
+| M4-6 Toasts | Built: toasts for other people's rituals with `aria-live`, at most `ui.maxToasts`, gone after `ui.toastSeconds`. |
+
+Also done: `TempleRoom` was split (connection state, directory reporter, ritual wiring) to stay under the file-size limit.
+
+Tests: 299 in total (shared 80, room-logic 64, web 106, worker 49). The ritual tests run in the Workers runtime and cover greet, cooldown, bow (reserve, arrive, walk away, stop, leave, timeout, all cushions taken, hibernation), lamps (light, one per person, rack full, expiry after eviction, owner leaves) and bad requests. They were flaky at first because of the tests, not the code (a walk timeout applies to everyone still walking; an eviction waits for pending timers); fixed, then six clean runs. A scripted greet, bow and lamp against the real running servers also behaved correctly.
+
+Not checked visually: the browser pane was hidden, so the buttons, toasts, bow animation, lamp glow and cushion snapping have not been seen on screen. Logic behind them is tested (poses, state, toasts, labels).
+
+Known limits: the animations are placeholders; sounds for bell and lamp arrive with M5; the meditation timer (`sit`/`stand`) is M6.
+
+Next: M5 (audio, the chanting schedule and the special-day banner).
+
+### Camera change (2026-11-01, during M4)
+
+The hall appeared in the upper part of the screen after entering, because the camera followed the avatar's spawn at the entrance (measured: the middle of the hall sat at +0.49 of the screen height with the top cut off, and a phone showed about a third of the width). On the user's suggestion the orbiting camera was replaced with one fixed view (ADR-024): `frameHall` finds the closest camera position that fits the whole hall inside 92% of the screen, looking at a point 1 m above the middle of the floor. A test checks that the whole hall fits, and is centred top to bottom within 0.1 of the screen, on wide, laptop, square and tall screens. Orbit and zoom and the camera follow were removed; M7-1 no longer needs "pinch to zoom". Not yet seen on screen (the browser pane is hidden).
+
+### Framing and lamp places (2026-11-01, after the first screenshot)
+
+The first fixed view ran the hall's near edge under the buttons and looked steep. Changes: the camera now looks down at 24 degrees (was about 33) with a narrower lens (38 degrees, was 50), so the walls slope in less and the hall reads as a wide flat room; the blockout walls are 3.5 m tall (was 5), which let the hall fill more of the width; and `frameHall` keeps the hall clear of a reserved strip for the buttons (66 px, or 150 px on a phone) and the text (24 px), centring it in what is left. Measured with a test helper: on a 1440 x 800 screen the hall spans 43 to 1397 px across and has 100 px free below it; on a 1000 x 520 screen it spans 83 to 917 px with 82 px free below; on a 390 x 780 phone it spans the full width. The view has not been checked on screen again.
+
+On the user's request the eight lamp places moved from a rack along the right wall to a shelf on each side of the altar (four each), filled left, right, left, right. The lamp ids are unchanged, so nothing else depends on the old positions.
+
+### Prayer beads removed (2026-11-01)
+
+On the user's request the prayer-beads ritual (key 2) was removed: its definition, animation, button, toast text, sound file entry (`audio.sfx.beads`) and tests are gone, and the manifest offers `greet`, `bow` and `lamp`. Key 2 now does nothing. The spec, intent and plan were updated to match. Adding it back later means a definition in `RITUALS`, an id in `RITUAL_IDS`, a pose, two texts and a manifest entry.

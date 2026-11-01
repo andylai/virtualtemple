@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { isPointInPolygon, type Point } from './geometry';
 
 /** Ritual ids the app knows how to perform (spec section 3.4). */
-export const RITUAL_IDS = ['greet', 'bow', 'beads', 'lamp'] as const;
+export const RITUAL_IDS = ['greet', 'bow', 'lamp'] as const;
 /** Languages the interface can be translated into. English is the first and always present. */
 export const LANGUAGE_CODES = ['en', 'ms', 'zh'] as const;
 /** Buddhist traditions a temple can declare. `undecided` is the placeholder until open question O-2. */
@@ -72,7 +72,7 @@ export const manifestSchema = z
     audio: z.object({
       ambient: assetPath,
       chanting: assetPath,
-      sfx: z.object({ bell: assetPath, beads: assetPath, lamp: assetPath }),
+      sfx: z.object({ bell: assetPath, lamp: assetPath }),
     }),
     rituals: z.array(z.enum(RITUAL_IDS)).min(1),
     nicknames: z.object({

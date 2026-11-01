@@ -5,7 +5,7 @@ type Hall = TempleManifest['hall'];
 /** Sizes of the blockout hall's furniture, in metres. Real art replaces them via manifest slots. */
 export const BLOCKOUT = {
   floorThickness: 0.1,
-  wallHeight: 5,
+  wallHeight: 3.5,
   wallThickness: 0.3,
   altarDepth: 2,
   altarHeight: 1.1,
@@ -36,8 +36,8 @@ export interface HallLayout {
   walls: readonly Box[];
   altar: Box;
   statue: Box;
-  /** The low shelf the lamps stand on, spanning all lamp slots. */
-  lampRack: Box | null;
+  /** The low shelves the lamps stand on: one on each side of the altar, where there are lamp places. */
+  lampRacks: readonly Box[];
   cushions: Hall['cushions'];
   lampSlots: Hall['lampSlots'];
   /** The point the camera looks at. */
@@ -56,19 +56,25 @@ function boundsOf(polygon: readonly Point[]): HallLayout['bounds'] {
   };
 }
 
-function rackFor(slots: Hall['lampSlots']): Box | null {
-  if (slots.length === 0) {
-    return null;
-  }
+/** One shelf under a row of lamp places. */
+function shelf(slots: Hall['lampSlots']): Box {
   const xs = slots.map((slot) => slot.x);
   const zs = slots.map((slot) => slot.z);
   const { rackHeight, rackWidth, rackPadding } = BLOCKOUT;
-  const depth = Math.max(...zs) - Math.min(...zs) + 2 * rackPadding;
   const center = {
     x: (Math.min(...xs) + Math.max(...xs)) / 2,
     z: (Math.min(...zs) + Math.max(...zs)) / 2,
   };
-  return box(center, rackHeight / 2, rackWidth, rackHeight, depth);
+  const width = Math.max(...xs) - Math.min(...xs) + 2 * rackPadding;
+  const depth = Math.max(...zs) - Math.min(...zs) + rackWidth;
+  return box(center, rackHeight / 2, width, rackHeight, depth);
+}
+
+/** A shelf for the lamp places on each side of the middle of the hall (the altar is in the middle). */
+function racksFor(slots: Hall['lampSlots'], centerX: number): Box[] {
+  const left = slots.filter((slot) => slot.x < centerX);
+  const right = slots.filter((slot) => slot.x >= centerX);
+  return [left, right].filter((side) => side.length > 0).map(shelf);
 }
 
 function box(center: Point, y: number, width: number, height: number, depth: number): Box {
@@ -126,7 +132,7 @@ export function buildHallLayout(hall: Hall): HallLayout {
       BLOCKOUT.statueHeight,
       BLOCKOUT.statueWidth,
     ),
-    lampRack: rackFor(hall.lampSlots),
+    lampRacks: racksFor(hall.lampSlots, centerX),
     cushions: hall.cushions,
     lampSlots: hall.lampSlots,
     focus: { x: centerX, z: (bounds.minZ + bounds.maxZ) / 2 },

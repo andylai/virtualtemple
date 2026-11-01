@@ -2,72 +2,48 @@ import {
   CLOSE_CODE,
   CORRELATION_HEADER,
   ERROR_CODE,
-  directoryName,
   hallNumberFromRoomName,
   parseClientMessage,
   type ClientMessage,
-  type PlayerView,
   type ServerMessage,
   type TempleConfig,
   type TempleManifest,
 } from '@temple/shared';
 import {
   PlayerRegistry,
+  RitualEngine,
   TokenBucket,
-  reportDelayMs,
-  suggestHall,
+  type LampRecord,
   type Player,
 } from '@temple/room-logic';
 import { Server, type Connection, type ConnectionContext, type WSMessage } from 'partyserver';
 import { configFor } from './config';
-import { readHallCounts } from './directoryClient';
+import {
+  GRACE_PREFIX,
+  LAMPS_KEY,
+  SERVER_CLOSE_CODES,
+  newResumeToken,
+  toView,
+  type AdmittedState,
+  type ConnectionState,
+  type GraceRecord,
+  type PendingState,
+} from './connectionState';
+import { DirectoryReporter } from './directoryReporter';
+import { HallRituals } from './hallRituals';
 import { manifestFor } from './manifests';
 import { Telemetry } from './telemetry';
 
 const MS_PER_SECOND = 1000;
-/** Storage key prefix for people who dropped and may come back. */
-const GRACE_PREFIX = 'grace:';
+/**
+ * Rituals and lamps due within this long get an exact timer. Anything later waits for the alarm,
+ * so a long wait (a walk to a cushion, a lit lamp) does not keep the hall awake and unable to hibernate.
+ */
+const EXACT_TIMER_HORIZON_MS = 8000;
 /** Invalid or too-frequent messages are forgotten after this long without a new one. */
 const STRIKE_WINDOW_MS = 60_000;
-/** Closes the hall itself starts. People who leave this way are not kept for a reconnect. */
-const SERVER_CLOSE_CODES: ReadonlySet<number> = new Set([
-  CLOSE_CODE.hallFull,
-  CLOSE_CODE.invalidMessages,
-  CLOSE_CODE.idle,
-  CLOSE_CODE.joinTimeout,
-  CLOSE_CODE.replaced,
-]);
 
-interface PendingState {
-  phase: 'pending';
-  connectedAtMs: number;
-  correlationId: string;
-}
-
-interface AdmittedState {
-  phase: 'admitted';
-  player: Player;
-  resumeToken: string;
-  correlationId: string;
-}
-
-/** Per-connection state. It lives in the WebSocket attachment, so it survives hibernation. */
-type ConnectionState = PendingState | AdmittedState;
-
-/** A person who dropped, kept in storage until they come back or the grace period ends. */
-interface GraceRecord {
-  player: Player;
-  expiresAtMs: number;
-}
-
-function toView(player: Player): PlayerView {
-  const { id, nickname, avatarId, x, z, facing } = player;
-  return { id, nickname, avatarId, x, z, facing };
-}
-
-function newResumeToken(): string {
-  return crypto.randomUUID().replaceAll('-', '');
-}
+type ServerErrorCode = Extract<ServerMessage, { type: 'error' }>['code'];
 
 /**
  * One hall (spec section 5). This class only connects the platform to the room rules in
@@ -78,13 +54,23 @@ export class TempleRoom extends Server<Env> {
 
   private cachedRegistry: PlayerRegistry | null = null;
   private cachedTelemetry: Telemetry | null = null;
+  private cachedReporter: DirectoryReporter | null = null;
+  private cachedRituals: HallRituals | null = null;
+  private savedLamps: LampRecord[] = [];
   private readonly limiters = new Map<string, TokenBucket>();
   private readonly strikes = new Map<string, { count: number; lastAtMs: number }>();
   private readonly lastSeenMs = new Map<string, number>();
-  private lastReportAtMs: number | null = null;
-  private reportTimer: ReturnType<typeof setTimeout> | null = null;
   private tickNumber = 0;
   private tickTimer: ReturnType<typeof setTimeout> | null = null;
+  private dueTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    // The lit lamps must be read before the first message is handled, so none is given out twice.
+    void ctx.blockConcurrencyWhile(async () => {
+      this.savedLamps = (await ctx.storage.get<LampRecord[]>(LAMPS_KEY)) ?? [];
+    });
+  }
 
   private get config(): TempleConfig {
     return configFor(this.env);
@@ -107,30 +93,79 @@ export class TempleRoom extends Server<Env> {
     return this.cachedTelemetry;
   }
 
+  private get reporter(): DirectoryReporter {
+    this.cachedReporter ??= new DirectoryReporter({
+      env: this.env,
+      hall: this.hall,
+      config: this.config,
+      population: () => this.registry.size,
+      waitUntil: (work) => this.ctx.waitUntil(work),
+      telemetry: this.telemetry,
+    });
+    return this.cachedReporter;
+  }
+
   /**
    * The people in this hall. After hibernation the in-memory registry is gone, so it is rebuilt
-   * from the saved state of the open connections (spec 5.2).
+   * from the saved state of the open connections (spec 5.2), and the rituals with it.
    */
   private get registry(): PlayerRegistry {
     if (this.cachedRegistry === null) {
-      const registry = new PlayerRegistry({
-        maxPlayers: this.config.hall.maxPlayers,
-        walkableArea: this.manifest.hall.walkableArea,
-        nicknames: {
-          adjectiveIds: this.manifest.nicknames.adjectives.map((word) => word.id),
-          nounIds: this.manifest.nicknames.nouns.map((word) => word.id),
-        },
-        random: Math.random,
-        newPlayerId: () => crypto.randomUUID(),
-      });
+      const registry = this.newRegistry();
       const saved = this.admittedStates().map((state) => state.player);
       registry.restore(saved);
+      this.cachedRegistry = registry;
+      this.cachedRituals = this.newRituals(registry);
       if (saved.length > 0) {
         this.telemetry.event('restored_after_wake', { people: saved.length });
       }
-      this.cachedRegistry = registry;
+      this.armDueTimer();
     }
     return this.cachedRegistry;
+  }
+
+  private get rituals(): HallRituals {
+    // Reading the registry builds the rituals as well.
+    void this.registry;
+    return this.cachedRituals as HallRituals;
+  }
+
+  private newRegistry(): PlayerRegistry {
+    return new PlayerRegistry({
+      maxPlayers: this.config.hall.maxPlayers,
+      walkableArea: this.manifest.hall.walkableArea,
+      nicknames: {
+        adjectiveIds: this.manifest.nicknames.adjectives.map((word) => word.id),
+        nounIds: this.manifest.nicknames.nouns.map((word) => word.id),
+      },
+      random: Math.random,
+      newPlayerId: () => crypto.randomUUID(),
+    });
+  }
+
+  private newRituals(registry: PlayerRegistry): HallRituals {
+    const { cooldownMs, walkTimeoutSec } = this.config.ritual;
+    const { durationSec, maxPerPlayer } = this.config.lamp;
+    const engine = new RitualEngine({
+      players: registry,
+      offered: this.manifest.rituals,
+      cushions: this.manifest.hall.cushions,
+      lampSlots: this.manifest.hall.lampSlots,
+      cooldownMs,
+      walkTimeoutMs: walkTimeoutSec * MS_PER_SECOND,
+      lampDurationMs: durationSec * MS_PER_SECOND,
+      lampMaxPerPlayer: maxPerPlayer,
+    });
+    engine.rebuild(this.savedLamps);
+    return new HallRituals({
+      engine,
+      storage: this.ctx.storage,
+      broadcast: (message) => this.sendToAdmitted(message),
+      sendToPlayer: (playerId, message) => this.sendToPlayer(playerId, message),
+      savePlayers: (playerIds) => this.savePlayers(new Set(playerIds)),
+      scheduleSnapshot: () => this.scheduleTick(),
+      waitUntil: (work) => this.ctx.waitUntil(work),
+    });
   }
 
   override onConnect(connection: Connection, ctx: ConnectionContext): void {
@@ -174,6 +209,7 @@ export class TempleRoom extends Server<Env> {
     if (state?.phase !== 'admitted') {
       return;
     }
+    this.rituals.left(state.player.id);
     const left = this.registry.remove(state.player.id);
     if (left === undefined) {
       return;
@@ -198,13 +234,25 @@ export class TempleRoom extends Server<Env> {
   }
 
   /**
-   * Closes connections that never joined or have been silent too long, and forgets people whose
-   * reconnect grace period is over. Runs from the alarm; the time is a parameter so tests can
-   * jump ahead.
+   * Closes connections that never joined or have been silent too long, forgets people whose
+   * reconnect grace period is over, ends rituals and lamps that have come due, and repeats the
+   * report to the directory. Runs from the alarm; the time is a parameter so tests can jump ahead.
    *
    * @param nowMs - The current time in milliseconds.
    */
   async sweepExpired(nowMs: number): Promise<void> {
+    this.closeSilentConnections(nowMs);
+    this.rituals.runDue(nowMs);
+    const remainingGraces = await this.dropExpiredGraces(nowMs);
+    this.telemetry.event('sweep', { remaining_graces: remainingGraces });
+    this.reporter.heartbeat(nowMs);
+    this.armDueTimer();
+    if (remainingGraces > 0 || [...this.getConnections()].length > 0) {
+      await this.ctx.storage.setAlarm(nowMs + this.alarmPeriodMs());
+    }
+  }
+
+  private closeSilentConnections(nowMs: number): void {
     const { joinTimeoutSec, idleKickSec } = this.config.hall;
     for (const connection of [...this.getConnections()]) {
       const state = this.stateOf(connection);
@@ -221,12 +269,6 @@ export class TempleRoom extends Server<Env> {
         this.safeSend(connection, { type: 'error', code: ERROR_CODE.idleTimeout });
         connection.close(CLOSE_CODE.idle, ERROR_CODE.idleTimeout);
       }
-    }
-    const remainingGraces = await this.dropExpiredGraces(nowMs);
-    this.telemetry.event('sweep', { remaining_graces: remainingGraces });
-    this.sendHeartbeat(nowMs);
-    if (remainingGraces > 0 || [...this.getConnections()].length > 0) {
-      await this.ctx.storage.setAlarm(nowMs + this.alarmPeriodMs());
     }
   }
 
@@ -245,12 +287,53 @@ export class TempleRoom extends Server<Env> {
     } else if (state.phase !== 'admitted') {
       this.refuse(connection, state, ERROR_CODE.notAllowed, nowMs);
     } else if (message.type === 'move') {
-      const result = this.registry.applyMove(state.player.id, message.x, message.z, message.facing);
-      if (result === 'ok') {
-        this.scheduleTick();
-      } else {
-        this.refuse(connection, state, ERROR_CODE.notAllowed, nowMs);
-      }
+      this.handleMove(connection, state, message, nowMs);
+    } else if (message.type === 'ritual_start') {
+      this.handleRitualStart(connection, state, message.ritualId, nowMs);
+    } else if (message.type === 'ritual_stop') {
+      this.rituals.stop(state.player.id);
+      this.armDueTimer();
+    }
+  }
+
+  private handleMove(
+    connection: Connection,
+    state: AdmittedState,
+    message: Extract<ClientMessage, { type: 'move' }>,
+    nowMs: number,
+  ): void {
+    const result = this.registry.applyMove(state.player.id, message.x, message.z, message.facing);
+    if (result === 'ok') {
+      this.rituals.moved(state.player.id, nowMs);
+      this.armDueTimer();
+      this.scheduleTick();
+    } else {
+      this.refuse(connection, state, ERROR_CODE.notAllowed, nowMs);
+    }
+  }
+
+  private handleRitualStart(
+    connection: Connection,
+    state: AdmittedState,
+    ritualId: Extract<ClientMessage, { type: 'ritual_start' }>['ritualId'],
+    nowMs: number,
+  ): void {
+    const error = this.rituals.start(state.player.id, ritualId, nowMs);
+    this.armDueTimer();
+    const log = this.telemetry.with({ correlation_id: state.correlationId });
+    if (error === null) {
+      log.count('ritual_started', { ritual: ritualId });
+    } else if (error === 'not_offered') {
+      this.refuse(connection, state, ERROR_CODE.notAllowed, nowMs);
+    } else if (error === 'no_slot_free' || error === 'lamp_limit') {
+      // The visitor did nothing wrong, so this is an answer and not a strike.
+      log.count('ritual_refused', { reason: error });
+      this.safeSend(connection, {
+        type: 'error',
+        code: error === 'lamp_limit' ? ERROR_CODE.lampLimit : ERROR_CODE.noSlotFree,
+      });
+    } else {
+      log.count('ritual_ignored', { reason: error });
     }
   }
 
@@ -301,6 +384,7 @@ export class TempleRoom extends Server<Env> {
       nickname: player.nickname,
       avatarId: player.avatarId,
       players: this.registry.list().map(toView),
+      lamps: this.rituals.litLamps(),
       population: this.registry.size,
       serverTimeMs: Date.now(),
       positionSendHz: this.config.net.positionSendHz,
@@ -315,6 +399,7 @@ export class TempleRoom extends Server<Env> {
   private async takeReturning(token: string, nowMs: number): Promise<Player | null> {
     const stale = this.admittedConnections().find(({ state }) => state.resumeToken === token);
     if (stale !== undefined) {
+      this.rituals.left(stale.state.player.id);
       const player = this.registry.remove(stale.state.player.id);
       stale.connection.close(CLOSE_CODE.replaced, 'replaced');
       if (player !== undefined) {
@@ -362,16 +447,16 @@ export class TempleRoom extends Server<Env> {
       tick: this.tickNumber,
       moves: moved.map(({ id, x, z, facing }) => ({ playerId: id, x, z, facing })),
     });
-    this.saveMovedPositions(new Set(moved.map((player) => player.id)));
+    this.savePlayers(new Set(moved.map((player) => player.id)));
     if (this.registry.hasMoves) {
       this.scheduleTick();
     }
   }
 
-  /** Saves moved people into their connections, so a still person keeps their place after hibernation. */
-  private saveMovedPositions(movedIds: ReadonlySet<string>): void {
+  /** Saves people into their connections, so a still person keeps their place and ritual after hibernation. */
+  private savePlayers(playerIds: ReadonlySet<string>): void {
     for (const { connection, state } of this.admittedConnections()) {
-      const current = movedIds.has(state.player.id)
+      const current = playerIds.has(state.player.id)
         ? this.registry.get(state.player.id)
         : undefined;
       if (current !== undefined) {
@@ -380,63 +465,30 @@ export class TempleRoom extends Server<Env> {
     }
   }
 
+  /**
+   * Makes sure the next ritual end or lamp expiry is handled on time. A timer covers the short ones
+   * (a few seconds); later ones wait for the alarm, which always comes while anyone is here, so they
+   * can be up to one alarm period late.
+   */
+  private armDueTimer(): void {
+    if (this.dueTimer !== null) {
+      clearTimeout(this.dueTimer);
+      this.dueTimer = null;
+    }
+    const next = this.rituals.nextDueAtMs();
+    const wait = next === null ? null : Math.max(0, next - Date.now());
+    if (wait !== null && wait <= EXACT_TIMER_HORIZON_MS) {
+      this.dueTimer = setTimeout(() => {
+        this.dueTimer = null;
+        this.rituals.runDue(Date.now());
+        this.armDueTimer();
+      }, wait);
+    }
+  }
+
   private announcePopulation(): void {
     this.sendToAdmitted({ type: 'population', count: this.registry.size });
-    if (this.registry.size >= this.config.hall.maxPlayers) {
-      // A full hall is told at once, so the next visitor is not sent to it.
-      this.sendReport();
-    } else {
-      this.scheduleReport();
-    }
-  }
-
-  /**
-   * Tells the hall directory how many people are here, at most once per `hall.reportIntervalSec`.
-   * A change inside the interval waits for the end of it, so the last change is never left out.
-   */
-  private scheduleReport(): void {
-    if (this.reportTimer !== null) {
-      return;
-    }
-    const intervalMs = this.config.hall.reportIntervalSec * MS_PER_SECOND;
-    const delay = reportDelayMs(this.lastReportAtMs, Date.now(), intervalMs);
-    if (delay === 0) {
-      this.sendReport();
-      return;
-    }
-    this.reportTimer = setTimeout(() => {
-      this.reportTimer = null;
-      this.sendReport();
-    }, delay);
-  }
-
-  private sendReport(): void {
-    this.lastReportAtMs = Date.now();
-    this.ctx.waitUntil(this.reportToDirectory(this.registry.size));
-  }
-
-  /** An occupied hall repeats its report so the directory can tell a quiet hall from a gone one. */
-  private sendHeartbeat(nowMs: number): void {
-    const heartbeatMs = this.config.hall.heartbeatSec * MS_PER_SECOND;
-    const due = this.lastReportAtMs === null || nowMs - this.lastReportAtMs >= heartbeatMs;
-    if (this.registry.size > 0 && due) {
-      this.sendReport();
-    }
-  }
-
-  /** The alarm must come at least as often as the heartbeat. */
-  private alarmPeriodMs(): number {
-    const { sweepSec, heartbeatSec } = this.config.hall;
-    return Math.min(sweepSec, heartbeatSec) * MS_PER_SECOND;
-  }
-
-  private async reportToDirectory(count: number): Promise<void> {
-    try {
-      const directory = this.env.HallDirectory.getByName(directoryName(this.env.TEMPLE_SLUG));
-      await directory.report(this.hall, count, Date.now());
-    } catch {
-      this.telemetry.count('directory_unavailable', { during: 'report' });
-    }
+    this.reporter.populationChanged();
   }
 
   /**
@@ -446,34 +498,14 @@ export class TempleRoom extends Server<Env> {
    */
   private async refuseFullHall(connection: Connection): Promise<void> {
     // Make sure the directory knows this hall is full before asking it where else to go.
-    await this.reportToDirectory(this.registry.size);
-    const nextHall = await this.findNextHall();
-    const all = nextHall === null;
+    await this.reporter.reportNow();
+    const nextHall = await this.reporter.findNextHall();
     this.safeSend(connection, {
       type: 'error',
-      code: all ? ERROR_CODE.allHallsFull : ERROR_CODE.hallFull,
+      code: DirectoryReporter.codeFor(nextHall),
       ...(nextHall === undefined ? {} : { nextHall }),
     });
     connection.close(CLOSE_CODE.hallFull, ERROR_CODE.hallFull);
-  }
-
-  /** The next hall to try, null when every hall is full, undefined when the directory is down. */
-  private async findNextHall(): Promise<number | null | undefined> {
-    const { count, maxPlayers, suggestSpread } = this.config.hall;
-    try {
-      const counts = await readHallCounts(this.env, Date.now());
-      counts.set(this.hall, maxPlayers);
-      return suggestHall(counts, {
-        hallCount: count,
-        maxPlayers,
-        spread: suggestSpread,
-        random: Math.random,
-        exclude: new Set([this.hall]),
-      });
-    } catch {
-      this.telemetry.count('directory_unavailable', { during: 'refusal' });
-      return undefined;
-    }
   }
 
   /** Answers a message that must not be accepted, and closes the connection after too many. */
@@ -504,6 +536,12 @@ export class TempleRoom extends Server<Env> {
       this.limiters.set(connectionId, limiter);
     }
     return limiter;
+  }
+
+  /** The alarm must come at least as often as the heartbeat. */
+  private alarmPeriodMs(): number {
+    const { sweepSec, heartbeatSec } = this.config.hall;
+    return Math.min(sweepSec, heartbeatSec) * MS_PER_SECOND;
   }
 
   private async ensureAlarm(nowMs: number): Promise<void> {
@@ -540,6 +578,13 @@ export class TempleRoom extends Server<Env> {
     }
   }
 
+  private sendToPlayer(playerId: string, message: ServerMessage): void {
+    const target = this.admittedConnections().find(({ state }) => state.player.id === playerId);
+    if (target !== undefined) {
+      this.safeSend(target.connection, message);
+    }
+  }
+
   private safeSend(connection: Connection, message: ServerMessage): void {
     this.trySend(connection, JSON.stringify(message));
   }
@@ -553,5 +598,3 @@ export class TempleRoom extends Server<Env> {
     }
   }
 }
-
-type ServerErrorCode = Extract<ServerMessage, { type: 'error' }>['code'];

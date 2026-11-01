@@ -15,7 +15,7 @@ Terminology: visitors only ever see the words "hall" and "people". A hall is one
 
 ### 1.1 Goals
 - Anonymous visitors enter a shared 3D dharma hall with no login.
-- Visitors see each other move and perform three rituals (greet with palms together, bow, prayer beads), plus lighting a lamp.
+- Visitors see each other move and perform two rituals (greet with palms together, and bow), plus lighting a lamp.
 - The server runs scheduled communal chanting at fixed Malaysia time (MYT) and special-day banners.
 - Works on desktop and mobile browsers, and runs fully on a developer machine.
 - The flagship temple is configuration (a manifest), not hard-coded, so Phase 2 can add temples without a rewrite.
@@ -73,26 +73,25 @@ Visitors see halls named "Hall 1", "Hall 2" and so on, with a count of people. T
 - FR-10: "Invite a friend" copies a link to the current hall. If that hall is full when the friend opens it, FR-7 applies.
 
 ### 3.3 Movement
-- FR-11: Click or tap to walk to a point; WASD and arrow keys on desktop; drag to orbit the camera; wheel or pinch to zoom.
+- FR-11: Click or tap to walk to a point; WASD and arrow keys on desktop (up and W walk towards the altar). The camera is fixed: one view that shows the whole hall, centred, and the visitor cannot rotate or zoom it. On a tall phone screen the camera sits further back so the whole hall still fits, and the view is fitted again when the screen shape changes. (Decision 2026-11-01; Sansa lets visitors orbit, but a fixed view keeps the hall always centred, avoids a tap being mistaken for a drag on phones, and means art only has to be made for one side.)
 - FR-12: Movement is clamped to a walkable area defined in the hall template. The server rejects positions outside it.
 - FR-13: The client sends its own position at a limited rate (`net.positionSendHz`, proposed default 8) and only when it has changed.
 - FR-14: The server broadcasts a batched snapshot of all moved players at `net.snapshotHz` (proposed default 8).
 - FR-15: The client smooths other players' movement by interpolating between snapshots, so slow network updates look continuous.
 
 ### 3.4 Rituals
-Rituals are config entries in the manifest (id, key binding, animation, sound, duration, optional seat requirement). Phase 1 ships these four:
+Rituals are config entries in the manifest (id, key binding, animation, sound, duration, optional seat requirement). Phase 1 ships these three (prayer beads, which Sansa has, was dropped on 2026-11-01):
 
 | Ritual id | Key | Behaviour |
 |---|---|---|
 | `greet` | 3 | Palms-together greeting animation at the current spot. |
-| `bow` | 1, E, Space | Needs a free cushion. The server assigns one; the client auto-walks there and bows. A "stop" button cancels. |
-| `beads` | 2 | Prayer-bead animation with a bead sound. |
-| `lamp` | L | Lights a lamp on a free slot of the lamp rack for `lamp.durationSec` (proposed default 300). Visible to everyone. |
+| `bow` | 1, E, Space | Needs a free cushion. The server reserves the nearest free one and answers `ritual_walk`; the client auto-walks there; the bow begins when the visitor is within 0.6 m of it, and they are put exactly on the cushion. A "stop" button cancels (also any walking by hand). |
+| `lamp` | L | Lights a lamp on the first free lamp place for `lamp.durationSec` (proposed default 300). The lamp places stand on a shelf on each side of the altar and are filled left, right, left, right, so the first lamps look balanced. Visible to everyone. |
 
-- Naming: ritual ids (`greet`, `bow`, `beads`, `lamp`) are neutral identifiers. The name a visitor sees, for example 合掌 (*hézhǎng*) or "palms together", comes from the translation files, so each language and tradition can use its own word.
-- FR-16: A ritual request names a ritual id. The server accepts it only if the id is in the manifest and the player is allowed to do it right now (see rate limits, section 8).
-- FR-17: Cushion and lamp slots are server-authoritative, so two players are never given the same slot. If none is free, the server replies `no_slot_free` and the client shows a short message.
-- FR-18: A ritual in progress ends on completion, on a stop request, or when the player moves away (for `bow`).
+- Naming: ritual ids (`greet`, `bow`, `lamp`) are neutral identifiers. The name a visitor sees, for example 合掌 (*hézhǎng*) or "palms together", comes from the translation files, so each language and tradition can use its own word.
+- FR-16: A ritual request names a ritual id. The server accepts it only if the id is in the manifest. A request inside `ritual.cooldownMs` of the person's last start is ignored without an error. Starting a ritual ends the one before it, but a request that cannot be met (no cushion, lamp limit) changes nothing. The definitions (keys, duration, animation) are in code (`RITUALS` in `packages/shared`); the manifest chooses which a temple offers.
+- FR-17: Cushion and lamp slots are server-authoritative, so two players are never given the same slot. If none is free, the server replies `no_slot_free` and the client shows a short message. A person who is refused is not counted as misbehaving: refusals for no free place or the lamp limit (`lamp_limit`, one lit lamp per person) are plain answers. A lamp is lit on the first free lamp place, stays lit for `lamp.durationSec` even if its owner leaves, and survives the hall being evicted from memory (it is kept in storage).
+- FR-18: A ritual in progress ends on completion, on a stop request, when the person leaves, or, for a bow, when they get more than 1.2 m from their cushion. A person who never reaches their cushion gives it up after `ritual.walkTimeoutSec` (proposed 20 s); nobody is told, because nothing was shown.
 - FR-19: Other players see the ritual animation on the performing avatar.
 
 ### 3.5 Activity toasts
@@ -101,7 +100,7 @@ Rituals are config entries in the manifest (id, key binding, animation, sound, d
 - FR-22: Toasts use an `aria-live` region so screen readers announce them.
 
 ### 3.6 Audio
-- FR-23: Three independent layers with their own volume sliders: ambient, chanting, and sound effects (bell, beads, lamp).
+- FR-23: Three independent layers with their own volume sliders: ambient, chanting, and sound effects (bell, lamp).
 - FR-24: Personal chanting can be played by the visitor between communal sessions. When a communal session starts, personal chanting stops and the shared chanting plays.
 - FR-25: A "keep playing in background" toggle controls whether audio continues when the tab is hidden (best effort on mobile, which may still pause it).
 - FR-26: Audio starts only after the visitor presses "Enter", to satisfy browser autoplay rules.
@@ -184,6 +183,7 @@ All tunable values are in one config module, with environment overrides, and no 
 | `net.pingSec` | 30 | How often a visible page sends `ping` |
 | `net.maxInvalidMessages` | 5 | Invalid, refused or too-frequent messages tolerated (within a minute) before the connection is closed |
 | `ritual.cooldownMs` | 1500 | Minimum time between ritual requests |
+| `ritual.walkTimeoutSec` | 20 | How long a cushion stays reserved for someone who has not reached it |
 | `lamp.durationSec` | 300 | How long a lit lamp stays |
 | `lamp.maxPerPlayer` | 1 | Lamps one player may keep lit |
 | `ui.toastSeconds` | 4 | Toast lifetime |
@@ -212,7 +212,7 @@ Per room, held in memory and restorable after a wake-up:
 Durable Objects can be evicted when idle, and with WebSocket hibernation they can be woken by a message while connections stay open. Requirement: the room must rebuild what it needs after a wake-up, for example from per-connection WebSocket attachments (or storage for the schedule). Losing a seat or lamp when the last player leaves is acceptable; losing the player list while players are still connected is not. Per-connection attachments are limited to 16 KiB; per-player state stays well under 1 KB, and anything larger goes in storage (spikes.md S2).
 
 ### 5.3 Scheduling
-A Durable Object has one `alarm()`. The room keeps an ordered list of due events (regular chanting, special-day chanting, lamp expiries) and always sets the alarm for the earliest one. The alarm handler runs everything that is due, then re-arms for the next. All schedule times are computed from the manifest's time zone.
+A Durable Object has one `alarm()`. The room keeps an ordered list of due events (ritual ends, walk timeouts, lamp expiries, and from M5 the chanting) in a `DueQueue`. Events due within about 8 seconds get an exact timer, so a greeting ends on time; later ones wait for the alarm, which comes at least every `hall.sweepSec` while anyone is connected, so they can be up to that late. The reason is that a pending timer keeps the hall awake and unable to hibernate. After the hall is evicted and rebuilt, the queue is rebuilt from the people's saved ritual state and the lamps in storage. All schedule times are computed from the manifest's time zone.
 
 ### 5.4 Broadcast
 Position updates are collected and sent as one snapshot per tick, not one message per move. Ritual start/end, joins and leaves are sent immediately.
@@ -252,7 +252,7 @@ JSON messages over one WebSocket. Every message has a `type`. Types and validati
 | `join` | `{ nickname?: { adjectiveId, nounId }, lang, resumeToken? }` | Sent once after connect. `resumeToken` is sent only when reconnecting (FR-40). |
 | `move` | `{ x, z, facing }` | Rate limited; position must be inside the walkable area. |
 | `ritual_start` | `{ ritualId }` | `ritualId` must be in the manifest. |
-| `ritual_stop` | `{}` | Cancels the current ritual and releases the seat. |
+| `ritual_stop` | `{}` | Cancels the current ritual, or the walk to a cushion, and releases the cushion. |
 | `sit` | `{}` | Reserve a cushion for the meditation timer. |
 | `stand` | `{}` | Release the cushion. |
 | `ping` | `{}` | Sent every `net.pingSec` while the page is visible (FR-41). |
@@ -264,13 +264,14 @@ JSON messages over one WebSocket. Every message has a `type`. Types and validati
 | `welcome` | `{ playerId, resumeToken, hall, nickname, avatarId, players[], population, serverTimeMs, positionSendHz, pingSec }`, later also `seats, lamps, specialDay?, chanting?` |
 | `player_joined` / `player_left` | `{ player }` / `{ playerId }` |
 | `snapshot` | `{ tick, moves: [{ playerId, x, z, facing }] }` |
-| `ritual_started` | `{ playerId, ritualId, slot? }` |
+| `ritual_started` | `{ playerId, ritualId, slotId? }`: the ritual is being performed now (for a bow, on arrival, with the cushion) |
+| `ritual_walk` | `{ slotId, x, z, facing }`, only to the person who asked to bow |
 | `ritual_ended` | `{ playerId }` |
 | `lamp_lit` / `lamp_out` | `{ slotId, ownerId }` / `{ slotId }` |
 | `population` | `{ count }` |
 | `chanting_start` | `{ startAtMs, durationMs, audioId }` |
 | `chanting_end` | `{}` |
-| `error` | `{ code, nextHall? }` (`nextHall` only with `hall_full` and `all_halls_full`) with codes `hall_full`, `all_halls_full`, `invalid_message`, `rate_limited`, `no_slot_free`, `not_allowed`, `idle_timeout` |
+| `error` | `{ code, nextHall? }` (`nextHall` only with `hall_full` and `all_halls_full`) with codes `hall_full`, `all_halls_full`, `invalid_message`, `rate_limited`, `no_slot_free`, `lamp_limit`, `not_allowed`, `idle_timeout` |
 
 ### 6.3 Validation rules
 - Parse and validate every incoming message against its schema before using it. Unknown types, extra fields that change meaning, wrong types and oversize messages are rejected with `invalid_message`.
@@ -313,8 +314,8 @@ One manifest ships with the app. The room, Worker and frontend read it through a
     "lampSlots": ["..."],
     "slots": { "altarBackdrop": "...", "banner": "...", "plaque": "...", "statue": "..." }
   },
-  "audio": { "ambient": "...", "chanting": "...", "sfx": { "bell": "...", "beads": "...", "lamp": "..." } },
-  "rituals": ["greet", "bow", "beads", "lamp"],
+  "audio": { "ambient": "...", "chanting": "...", "sfx": { "bell": "...", "lamp": "..." } },
+  "rituals": ["greet", "bow", "lamp"],
   "nicknames": { "adjectives": ["..."], "nouns": ["..."] },
   "donation": null
 }
@@ -409,7 +410,7 @@ Limits from the project standards: no file over 800 lines and no method over 60 
 
 1. **Skeleton:** repo layout, shared types, manifest loader, local dev command, empty scene with camera.
 2. **Room core:** join/leave, population, movement snapshots, interpolation, with capsule avatars.
-3. **Rituals:** greet, bow with cushions, beads, lamp, toasts.
+3. **Rituals:** greet, bow with cushions, lamp, toasts.
 4. **Audio and schedule:** three layers, chanting sync, alarm scheduler, special-day banner.
 5. **Extras:** meditation timer, copy link, remember me, hall assignment and "Change hall", exit screen.
 6. **Polish:** mobile layout, i18n, accessibility, credits panel, real art swapped in.

@@ -105,43 +105,43 @@
     "lampSlots": [
       {
         "id": "lamp-1",
-        "x": 5.5,
-        "z": -3.5
+        "x": -3.2,
+        "z": -4.9
       },
       {
         "id": "lamp-2",
-        "x": 5.5,
-        "z": -2.5
+        "x": 3.2,
+        "z": -4.9
       },
       {
         "id": "lamp-3",
-        "x": 5.5,
-        "z": -1.5
+        "x": -3.9,
+        "z": -4.9
       },
       {
         "id": "lamp-4",
-        "x": 5.5,
-        "z": -0.5
+        "x": 3.9,
+        "z": -4.9
       },
       {
         "id": "lamp-5",
-        "x": 5.5,
-        "z": 0.5
+        "x": -4.6,
+        "z": -4.9
       },
       {
         "id": "lamp-6",
-        "x": 5.5,
-        "z": 1.5
+        "x": 4.6,
+        "z": -4.9
       },
       {
         "id": "lamp-7",
-        "x": 5.5,
-        "z": 2.5
+        "x": -5.3,
+        "z": -4.9
       },
       {
         "id": "lamp-8",
-        "x": 5.5,
-        "z": 3.5
+        "x": 5.3,
+        "z": -4.9
       }
     ],
     "slots": {
@@ -156,11 +156,10 @@
     "chanting": "audio/chanting.opus",
     "sfx": {
       "bell": "audio/bell.opus",
-      "beads": "audio/beads.opus",
       "lamp": "audio/lamp.opus"
     }
   },
-  "rituals": ["greet", "bow", "beads", "lamp"],
+  "rituals": ["greet", "bow", "lamp"],
   "nicknames": {
     "adjectives": [
       {

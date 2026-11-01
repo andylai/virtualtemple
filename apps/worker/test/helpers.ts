@@ -1,7 +1,8 @@
-import { SELF, env } from 'cloudflare:test';
+import { SELF, env, runInDurableObject } from 'cloudflare:test';
 import {
   DEFAULT_CONFIG,
   directoryName,
+  hallRoomName,
   parseHallsResponse,
   parseServerMessage,
   type ServerMessage,
@@ -187,4 +188,10 @@ function firstUntried(tried: ReadonlySet<number>): number | null {
     }
   }
   return null;
+}
+
+/** Runs the hall's due work as if it were `atMs`: ends rituals, puts lamps out, closes idle people. */
+export async function sweepAt(hall: number, atMs: number): Promise<void> {
+  const stub = env.TempleRoom.getByName(hallRoomName('flagship', hall));
+  await runInDurableObject(stub, (room) => room.sweepExpired(atMs));
 }

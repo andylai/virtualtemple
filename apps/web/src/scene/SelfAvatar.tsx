@@ -1,8 +1,11 @@
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import type { Point } from '@temple/shared';
 import { useEffect, useRef, type MutableRefObject } from 'react';
-import { Vector3, type Camera, type Group } from 'three';
-import { AVATAR_BASE_Y, Avatar } from './Avatar';
+import type { Group } from 'three';
+import type { RitualClock } from '../net/ritualClock';
+import { AnimatedAvatar } from './AnimatedAvatar';
+import { AVATAR_BASE_Y } from './Avatar';
+import { FORWARD_ON_FLOOR } from './framing';
 import {
   NO_KEYS,
   WALK_SPEED_MPS,
@@ -14,23 +17,46 @@ import {
 
 const MS_PER_SECOND = 1000;
 const DEGREES_TO_RADIANS = Math.PI / 180;
-/** Share of the remaining distance the camera closes each frame when following (0 to 1). */
-const CAMERA_FOLLOW = 0.15;
 
-type OrbitTarget = { target: Vector3 } | null;
-const scratch = new Vector3();
+/** A place the hall put the visitor at, for example on their cushion. */
+export type Snap = Point & { facing: number };
 
 interface SelfAvatarProps {
   /** Where the visitor starts, from the server's welcome. */
-  start: Point & { facing: number };
+  start: Snap;
+  playerId: string;
   avatarId: number;
+  ritualClock: RitualClock;
   walkableArea: readonly Point[];
   /** How many times a second the position may be sent. */
   sendHz: number;
   /** Sends the visitor's position to the hall. */
   onMove: (x: number, z: number, facing: number) => void;
-  /** Where a click on the floor asked the visitor to walk, or null. */
+  /** Called when the visitor starts walking with the keyboard. */
+  onKeyMove: () => void;
+  /** Where a click on the floor or a cushion asked the visitor to walk, or null. */
   walkTarget: MutableRefObject<Point | null>;
+  /** Set by the interface to put the visitor exactly somewhere; taken (and cleared) on the next frame. */
+  snap: MutableRefObject<Snap | null>;
+}
+
+/** What changes from frame to frame while the visitor walks. */
+interface Motion {
+  position: Point;
+  facing: number;
+  unsent: boolean;
+  sinceSendMs: number;
+  keysWereHeld: boolean;
+}
+
+interface FrameContext extends Omit<
+  SelfAvatarProps,
+  'start' | 'playerId' | 'avatarId' | 'ritualClock'
+> {
+  motion: Motion;
+  held: HeldKeys;
+  group: Group | null;
+  deltaSeconds: number;
 }
 
 /** Keeps `held` up to date with the movement keys, ignoring typing in form fields. */
@@ -63,77 +89,84 @@ function useHeldKeys(): MutableRefObject<HeldKeys> {
   return held;
 }
 
-/** Moves the orbit target (and the camera with it) part of the way towards a point. */
-function followWithCamera(controls: OrbitTarget, camera: Camera, point: Point): void {
-  if (controls !== null) {
-    scratch.set(point.x, 0, point.z).sub(controls.target).multiplyScalar(CAMERA_FOLLOW);
-    controls.target.add(scratch);
-    camera.position.add(scratch);
+/** Puts the visitor where the hall asked, and forgets any walk in progress. */
+function takeSnap(context: FrameContext): void {
+  const spot = context.snap.current;
+  if (spot !== null) {
+    context.motion.position = { x: spot.x, z: spot.z };
+    context.motion.facing = spot.facing;
+    context.motion.unsent = false;
+    context.walkTarget.current = null;
+    context.snap.current = null;
+  }
+}
+
+/** One frame of the visitor's walking: step, draw, and report to the hall. */
+function advance(context: FrameContext): void {
+  const { motion, held, group, deltaSeconds } = context;
+  takeSnap(context);
+  const keysHeld = held.forward || held.back || held.left || held.right;
+  if (keysHeld && !motion.keysWereHeld) {
+    context.onKeyMove();
+  }
+  motion.keysWereHeld = keysHeld;
+  const input = {
+    keys: held,
+    cameraForward: FORWARD_ON_FLOOR,
+    target: context.walkTarget.current,
+  };
+  const { next, target } = planStep(
+    motion.position,
+    input,
+    context.walkableArea,
+    WALK_SPEED_MPS * deltaSeconds,
+  );
+  context.walkTarget.current = target;
+  if (next.x !== motion.position.x || next.z !== motion.position.z) {
+    motion.facing = facingFromDirection(next.x - motion.position.x, next.z - motion.position.z);
+    motion.position = next;
+    motion.unsent = true;
+  }
+  group?.position.set(motion.position.x, AVATAR_BASE_Y, motion.position.z);
+  group?.rotation.set(0, -motion.facing * DEGREES_TO_RADIANS, 0);
+  motion.sinceSendMs += deltaSeconds * MS_PER_SECOND;
+  if (motion.unsent && motion.sinceSendMs >= MS_PER_SECOND / context.sendHz) {
+    context.onMove(motion.position.x, motion.position.z, motion.facing);
+    motion.unsent = false;
+    motion.sinceSendMs = 0;
   }
 }
 
 /**
  * The visitor's own avatar. It moves at once, from the keyboard or a click on the floor, and
- * reports its position to the hall at most `sendHz` times a second. The camera follows it.
+ * reports its position to the hall at most `sendHz` times a second. The camera does not move:
+ * the whole hall is always in view.
  */
-export function SelfAvatar({
-  start,
-  avatarId,
-  walkableArea,
-  sendHz,
-  onMove,
-  walkTarget,
-}: SelfAvatarProps) {
+export function SelfAvatar(props: SelfAvatarProps) {
+  const { start, playerId, avatarId, ritualClock } = props;
   const group = useRef<Group>(null);
-  const position = useRef<Point>({ x: start.x, z: start.z });
-  const facing = useRef(start.facing);
-  const unsent = useRef(false);
-  const sinceSendMs = useRef(0);
-  const held = useHeldKeys();
-  const controls = useThree((state) => state.controls) as OrbitTarget;
-
-  const camera = useThree((state) => state.camera);
-
-  // On arrival the view moves to the visitor as a whole, so the camera keeps its angle.
-  useEffect(() => {
-    if (controls !== null) {
-      scratch.set(start.x, 0, start.z).sub(controls.target);
-      controls.target.add(scratch);
-      camera.position.add(scratch);
-    }
-  }, [controls, camera, start.x, start.z]);
-
-  useFrame(({ camera }, deltaSeconds) => {
-    const cameraForward = controls
-      ? { x: controls.target.x - camera.position.x, z: controls.target.z - camera.position.z }
-      : { x: 0, z: -1 };
-    const reach = WALK_SPEED_MPS * deltaSeconds;
-    const input = { keys: held.current, cameraForward, target: walkTarget.current };
-    const { next, target } = planStep(position.current, input, walkableArea, reach);
-    walkTarget.current = target;
-    if (next.x !== position.current.x || next.z !== position.current.z) {
-      facing.current = facingFromDirection(
-        next.x - position.current.x,
-        next.z - position.current.z,
-      );
-      position.current = next;
-      unsent.current = true;
-    }
-    group.current?.position.set(next.x, AVATAR_BASE_Y, next.z);
-    group.current?.rotation.set(0, -facing.current * DEGREES_TO_RADIANS, 0);
-
-    sinceSendMs.current += deltaSeconds * MS_PER_SECOND;
-    if (unsent.current && sinceSendMs.current >= MS_PER_SECOND / sendHz) {
-      onMove(next.x, next.z, facing.current);
-      unsent.current = false;
-      sinceSendMs.current = 0;
-    }
-    followWithCamera(controls, camera, next);
+  const motion = useRef<Motion>({
+    position: { x: start.x, z: start.z },
+    facing: start.facing,
+    unsent: false,
+    sinceSendMs: 0,
+    keysWereHeld: false,
   });
+  const held = useHeldKeys();
+
+  useFrame((_state, deltaSeconds) =>
+    advance({
+      ...props,
+      motion: motion.current,
+      held: held.current,
+      group: group.current,
+      deltaSeconds,
+    }),
+  );
 
   return (
     <group ref={group} position={[start.x, AVATAR_BASE_Y, start.z]}>
-      <Avatar avatarId={avatarId} isSelf />
+      <AnimatedAvatar playerId={playerId} avatarId={avatarId} isSelf clock={ritualClock} />
     </group>
   );
 }

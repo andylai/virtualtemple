@@ -3,7 +3,9 @@ import type { PlayerView } from '@temple/shared';
 import { useRef } from 'react';
 import type { Group } from 'three';
 import { renderDelayMs, type TrackSet } from '../net/interpolation';
-import { AVATAR_BASE_Y, Avatar } from './Avatar';
+import type { RitualClock } from '../net/ritualClock';
+import { AVATAR_BASE_Y } from './Avatar';
+import { AnimatedAvatar } from './AnimatedAvatar';
 
 const DEGREES_TO_RADIANS = Math.PI / 180;
 
@@ -11,16 +13,19 @@ interface RemotePlayersProps {
   players: ReadonlyMap<string, PlayerView>;
   selfId: string | null;
   tracks: TrackSet;
+  ritualClock: RitualClock;
   positionSendHz: number;
 }
 
 function RemotePlayer({
   player,
   tracks,
+  ritualClock,
   delayMs,
 }: {
   player: PlayerView;
   tracks: TrackSet;
+  ritualClock: RitualClock;
   delayMs: number;
 }) {
   const group = useRef<Group>(null);
@@ -33,7 +38,7 @@ function RemotePlayer({
   });
   return (
     <group ref={group} position={[player.x, AVATAR_BASE_Y, player.z]}>
-      <Avatar avatarId={player.avatarId} />
+      <AnimatedAvatar playerId={player.id} avatarId={player.avatarId} clock={ritualClock} />
     </group>
   );
 }
@@ -43,14 +48,26 @@ function RemotePlayer({
  * two positions the server sent, so walking looks smooth (FR-15). React redraws this only when
  * someone joins or leaves; positions are set directly every frame.
  */
-export function RemotePlayers({ players, selfId, tracks, positionSendHz }: RemotePlayersProps) {
+export function RemotePlayers({
+  players,
+  selfId,
+  tracks,
+  ritualClock,
+  positionSendHz,
+}: RemotePlayersProps) {
   const delayMs = renderDelayMs(positionSendHz);
   return (
     <>
       {[...players.values()]
         .filter((player) => player.id !== selfId)
         .map((player) => (
-          <RemotePlayer key={player.id} player={player} tracks={tracks} delayMs={delayMs} />
+          <RemotePlayer
+            key={player.id}
+            player={player}
+            tracks={tracks}
+            ritualClock={ritualClock}
+            delayMs={delayMs}
+          />
         ))}
     </>
   );

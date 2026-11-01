@@ -20,6 +20,8 @@ export const ERROR_CODE = {
   invalidMessage: 'invalid_message',
   rateLimited: 'rate_limited',
   notAllowed: 'not_allowed',
+  noSlotFree: 'no_slot_free',
+  lampLimit: 'lamp_limit',
   idleTimeout: 'idle_timeout',
 } as const;
 

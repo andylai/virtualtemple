@@ -76,6 +76,32 @@ describe('nicknameText', () => {
   });
 });
 
+describe('ritual messages', () => {
+  it('accepts the two ritual requests and refuses unknown rituals or extra fields', () => {
+    expect(parse({ type: 'ritual_start', ritualId: 'bow' }).ok).toBe(true);
+    expect(parse({ type: 'ritual_stop' }).ok).toBe(true);
+    expect(parse({ type: 'ritual_start', ritualId: 'dance' }).ok).toBe(false);
+    expect(parse({ type: 'ritual_start', ritualId: 'bow', slotId: 'cushion-1' }).ok).toBe(false);
+  });
+
+  it('accepts the ritual and lamp messages the hall sends', () => {
+    const id = 'player-aaaaaaaa';
+    const messages = [
+      { type: 'ritual_started', playerId: id, ritualId: 'bow', slotId: 'cushion-1' },
+      { type: 'ritual_started', playerId: id, ritualId: 'greet' },
+      { type: 'ritual_ended', playerId: id },
+      { type: 'ritual_walk', slotId: 'cushion-1', x: 1, z: 2, facing: 0 },
+      { type: 'lamp_lit', slotId: 'lamp-1', ownerId: id },
+      { type: 'lamp_out', slotId: 'lamp-1' },
+      { type: 'error', code: 'no_slot_free' },
+      { type: 'error', code: 'lamp_limit' },
+    ];
+    for (const message of messages) {
+      expect(parseServerMessage(JSON.stringify(message)).ok).toBe(true);
+    }
+  });
+});
+
 describe('refusal messages', () => {
   it('accepts a hall_full error with the next hall, or none', () => {
     const withNext = { type: 'error', code: 'hall_full', nextHall: 3 };

@@ -17,8 +17,8 @@ Visitors enter anonymously, walk around a shared 3D dharma hall with other live 
 | World | 3D hanok dharma hall: gilt Buddha tapestry, floor cushions, chibi avatars in monk robes. |
 | Multiplayer | Live shared rooms. URL params `room`, `instance`, `region` select the room, shard and region. A server-select modal shows each server's occupancy ("same hall on any server"). Live population counter. |
 | Social feed | Toasts for others' actions ("포근한 안개님이 합장으로 인사했어요"). |
-| Rituals | **합장** (hapjang, palms-together greeting, key 3), **절하기** (bow, keys 1/E/Space; auto-walks to a free cushion, "멈추기" to stop), **염주** (prayer beads, key 2). |
-| Movement | Click-to-walk, WASD/arrow keys, drag to orbit, wheel to zoom. |
+| Rituals | **합장** (hapjang, palms-together greeting, key 3), **절하기** (bow, keys 1/E/Space; auto-walks to a free cushion, "멈추기" to stop), **염주** (prayer beads, key 2; not in our hall, see spec 3.4). |
+| Movement | Click-to-walk, WASD/arrow keys, drag to orbit, wheel to zoom. (Our hall uses one fixed camera instead; see spec FR-11.) |
 | Audio | Three layers: ambient (wind/birds), chanting, SFX (bell/bead). Background-playback toggle. |
 | Communal chanting | Scheduled 예불 daily 05:00 and 18:00 Korea time. Personal listening ends and everyone hears it together. |
 | Donations | "공양미 보태기" modal with KakaoPay QR and Buy Me a Coffee. |
@@ -33,7 +33,7 @@ In scope:
 - Anonymous entry with a generated nickname.
 - One 3D hall with placeholder avatars and assets.
 - Shared live rooms: movement sync, population counter, action toasts.
-- Three rituals: greet (palms together), bow, prayer beads. The ritual id is neutral (`greet`); the displayed name comes from each language's translation file.
+- Two rituals: greet (palms together) and bow. (Sansa also has prayer beads; we dropped it on 2026-11-01.) The ritual id is neutral (`greet`); the displayed name comes from each language's translation file.
 - Ambient audio, chanting and SFX, with volume controls.
 - Scheduled communal chanting at fixed Malaysia time (MYT) slots, started by the server.
 - Hall assignment: the plain link places the visitor in the first hall with space, so they never have to choose. A "Change hall" list shows each hall's people count. A link with `?hall=N` goes to that hall, and a full hall overflows to the next one. Visitors only ever see the words "hall" and "people".
@@ -141,7 +141,7 @@ Mitigations: spend alerts, Draco/KTX2 texture and mesh compression, Opus audio, 
 
 **Art and audio**
 - 3D hall model, Buddha statue, cushions, avatar and robes (licensed, or commissioned). Sansa's assets must not be copied.
-- Chanting audio for the chosen tradition, plus ambient and SFX (bell, beads), all with clear licences.
+- Chanting audio for the chosen tradition, plus ambient and SFX (bell, lamp), all with clear licences.
 - Compressed formats prepared: glTF with Draco/KTX2, audio in Opus.
 
 **Content decisions**
@@ -222,7 +222,7 @@ Draft manifest fields:
     }
   },
   "audio": { "ambient": "...", "chanting": "...", "sfx": "..." },
-  "rituals": ["greet", "bow", "beads"],
+  "rituals": ["greet", "bow", "lamp"],
   "donation": { "type": "link", "url": "..." }
 }
 ```

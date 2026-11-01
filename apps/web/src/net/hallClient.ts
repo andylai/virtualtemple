@@ -4,6 +4,7 @@ import { fetchHalls } from './hallsApi';
 import { INITIAL_HALL_STATE, type HallState } from './hallState';
 import { TrackSet } from './interpolation';
 import { JoinFlow } from './joinFlow';
+import { RitualClock } from './ritualClock';
 import { Store } from './store';
 
 /** The hall the page address asks for (`?hall=2`), or null when it names none. */
@@ -15,6 +16,7 @@ export function requestedHallFromAddress(search: string): number | null {
 export interface HallClient {
   store: Store<HallState>;
   tracks: TrackSet;
+  ritualClock: RitualClock;
   connection: HallConnection;
   flow: JoinFlow;
   tokens: TokenStorage;
@@ -30,6 +32,7 @@ export interface HallClient {
 export function createHallClient(language: LanguageCode, requestedHall: number | null): HallClient {
   const store = new Store<HallState>(INITIAL_HALL_STATE);
   const tracks = new TrackSet();
+  const ritualClock = new RitualClock();
   const tokens = sessionTokenStorage();
   const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
   const connection = new HallConnection({
@@ -37,6 +40,7 @@ export function createHallClient(language: LanguageCode, requestedHall: number |
     language,
     store,
     tracks,
+    ritualClock,
     tokens,
     createSocket: (url) => new WebSocket(url),
     now: () => performance.now(),
@@ -52,5 +56,5 @@ export function createHallClient(language: LanguageCode, requestedHall: number |
     hallCount: DEFAULT_CONFIG.hall.count,
     maxTries: DEFAULT_CONFIG.hall.joinRetries,
   });
-  return { store, tracks, connection, flow, tokens };
+  return { store, tracks, ritualClock, connection, flow, tokens };
 }

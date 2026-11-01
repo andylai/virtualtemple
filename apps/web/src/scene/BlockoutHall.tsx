@@ -11,8 +11,11 @@ const PALETTE = {
   statue: '#c9a227',
   rack: '#5a3e28',
   cushion: '#a33b2d',
-  lamp: '#e8b84a',
+  lamp: '#7a6a4a',
+  litLamp: '#ffd36b',
 } as const;
+
+const LIT_LAMP_GLOW = 1.2;
 
 /** A press that moves further than this many pixels is a drag, not a click. */
 const CLICK_DRAG_PX = 5;
@@ -32,8 +35,11 @@ function BoxMesh({ box, color }: { box: Box; color: string }) {
 export function BlockoutHall({
   layout,
   onFloorClick,
+  litLamps,
 }: {
   layout: HallLayout;
+  /** The lamp places that have a lit lamp. */
+  litLamps?: ReadonlySet<string> | undefined;
   /** Called with the spot on the floor that was clicked or tapped. */
   onFloorClick?: ((point: Point) => void) | undefined;
 }) {
@@ -62,7 +68,9 @@ export function BlockoutHall({
       ))}
       <BoxMesh box={layout.altar} color={PALETTE.altar} />
       <BoxMesh box={layout.statue} color={PALETTE.statue} />
-      {layout.lampRack !== null && <BoxMesh box={layout.lampRack} color={PALETTE.rack} />}
+      {layout.lampRacks.map((rack) => (
+        <BoxMesh key={`${rack.x}:${rack.z}`} box={rack} color={PALETTE.rack} />
+      ))}
       {layout.cushions.map((cushion) => (
         <mesh key={cushion.id} position={[cushion.x, cushionHeight / 2, cushion.z]}>
           <cylinderGeometry
@@ -74,7 +82,11 @@ export function BlockoutHall({
       {layout.lampSlots.map((slot) => (
         <mesh key={slot.id} position={[slot.x, rackHeight + lampSize, slot.z]}>
           <sphereGeometry args={[lampSize, LAMP_SEGMENTS, LAMP_SEGMENTS]} />
-          <meshStandardMaterial color={PALETTE.lamp} />
+          <meshStandardMaterial
+            color={litLamps?.has(slot.id) ? PALETTE.litLamp : PALETTE.lamp}
+            emissive={litLamps?.has(slot.id) ? PALETTE.litLamp : '#000000'}
+            emissiveIntensity={litLamps?.has(slot.id) ? LIT_LAMP_GLOW : 0}
+          />
         </mesh>
       ))}
     </group>

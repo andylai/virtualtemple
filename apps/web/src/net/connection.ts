@@ -3,6 +3,7 @@ import {
   parseServerMessage,
   type LanguageCode,
   type NicknameIds,
+  type RitualId,
   type ServerMessage,
 } from '@temple/shared';
 import {
@@ -12,6 +13,7 @@ import {
   type HallStatus,
 } from './hallState';
 import type { TrackSet } from './interpolation';
+import type { RitualClock } from './ritualClock';
 import type { Store } from './store';
 
 /** `WebSocket.OPEN`, named because the number alone says nothing. */
@@ -63,6 +65,7 @@ export interface ConnectionDeps {
   language: LanguageCode;
   store: Store<HallState>;
   tracks: TrackSet;
+  ritualClock: RitualClock;
   tokens: TokenStorage;
   createSocket: (url: string) => WebSocket;
   now: () => number;
@@ -78,6 +81,7 @@ export class HallConnection implements HallLink {
   private socket: WebSocket | null = null;
   private hall = 1;
   private options: ConnectOptions = {};
+  private lastRitual: RitualId | null = null;
   private attempt = 0;
   private stopped = true;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -110,6 +114,17 @@ export class HallConnection implements HallLink {
     this.socket?.close(NORMAL_CLOSE, 'leaving');
     this.socket = null;
     this.setStatus('idle');
+  }
+
+  /** Asks the hall to start a ritual. The answer arrives as messages. */
+  startRitual(ritualId: RitualId): void {
+    this.lastRitual = ritualId;
+    this.send({ type: 'ritual_start', ritualId });
+  }
+
+  /** Asks the hall to end the visitor's ritual and free their cushion. */
+  stopRitual(): void {
+    this.send({ type: 'ritual_stop' });
   }
 
   /** Tells the hall where the visitor is. Ignored while not connected. */
@@ -150,20 +165,55 @@ export class HallConnection implements HallLink {
     if (message.type === 'welcome') {
       this.welcomed(message);
     }
-    if (message.type === 'player_joined') {
-      this.deps.tracks.push(message.player.id, this.sampleOf(message.player));
-    } else if (message.type === 'player_left') {
-      this.deps.tracks.remove(message.playerId);
-    }
-    this.deps.store.setState(applyServerMessage(this.deps.store.getState(), message));
+    this.trackPeople(message);
+    const next = applyServerMessage(this.deps.store.getState(), message);
+    this.deps.store.setState(this.withRitualNotice(next, message));
   }
 
   private welcomed(message: Extract<ServerMessage, { type: 'welcome' }>): void {
     this.attempt = 0;
     this.deps.tokens.write(message.hall, message.resumeToken);
     this.deps.tracks.clear();
-    message.players.forEach((player) => this.deps.tracks.push(player.id, this.sampleOf(player)));
+    this.deps.ritualClock.clear();
+    message.players.forEach((player) => {
+      this.deps.tracks.push(player.id, this.sampleOf(player));
+      if (player.ritual !== null) {
+        this.deps.ritualClock.start(player.id, player.ritual.ritualId, this.deps.now());
+      }
+    });
     this.startPings(message.pingSec);
+  }
+
+  /** Keeps the positions and the ritual start times of the people in the hall up to date. */
+  private trackPeople(message: ServerMessage): void {
+    if (message.type === 'player_joined') {
+      this.deps.tracks.push(message.player.id, this.sampleOf(message.player));
+      if (message.player.ritual !== null) {
+        this.deps.ritualClock.start(
+          message.player.id,
+          message.player.ritual.ritualId,
+          this.deps.now(),
+        );
+      }
+    } else if (message.type === 'player_left') {
+      this.deps.tracks.remove(message.playerId);
+      this.deps.ritualClock.stop(message.playerId);
+    } else if (message.type === 'ritual_started') {
+      this.deps.ritualClock.start(message.playerId, message.ritualId, this.deps.now());
+    } else if (message.type === 'ritual_ended') {
+      this.deps.ritualClock.stop(message.playerId);
+    }
+  }
+
+  /** Remembers that a ritual did not start, with the ritual the visitor had asked for. */
+  private withRitualNotice(state: HallState, message: ServerMessage): HallState {
+    if (
+      message.type === 'error' &&
+      (message.code === 'no_slot_free' || message.code === 'lamp_limit')
+    ) {
+      return { ...state, ritualNotice: { code: message.code, ritualId: this.lastRitual } };
+    }
+    return state;
   }
 
   private recordSnapshot(message: Extract<ServerMessage, { type: 'snapshot' }>): void {

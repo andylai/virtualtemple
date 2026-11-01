@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HallConnection, type SavedToken, type TokenStorage } from './connection';
 import { INITIAL_HALL_STATE, type HallState } from './hallState';
 import { TrackSet } from './interpolation';
+import { RitualClock } from './ritualClock';
 import { Store } from './store';
 
 type Listener = (event: { data?: unknown; code?: number }) => void;
@@ -51,11 +52,13 @@ const welcome = (resumeToken = 't'.repeat(32)): ServerMessage => ({
       id: 'player-self-xx',
       nickname: { adjectiveId: 'calm', nounId: 'lotus' },
       avatarId: 0,
+      ritual: null,
       x: 1,
       z: 2,
       facing: 0,
     },
   ],
+  lamps: [],
   population: 1,
   serverTimeMs: 1,
   positionSendHz: 8,
@@ -72,6 +75,7 @@ function setup() {
   };
   const store = new Store<HallState>(INITIAL_HALL_STATE);
   const tracks = new TrackSet();
+  const ritualClock = new RitualClock();
   let visible = true;
   let clock = 1000;
   const connection = new HallConnection({
@@ -79,6 +83,7 @@ function setup() {
     language: 'en',
     store,
     tracks,
+    ritualClock,
     tokens,
     createSocket: (url) => {
       const socket = new FakeSocket(url);
@@ -94,6 +99,7 @@ function setup() {
     sockets,
     store,
     tracks,
+    ritualClock,
     tokens,
     hide: () => (visible = false),
     advanceClock: (ms: number) => (clock += ms),
@@ -283,5 +289,54 @@ describe('HallConnection: halls', () => {
     sockets[0]!.receive({ type: 'error', code: 'all_halls_full', nextHall: null });
     sockets[0]!.drop(CLOSE_CODE.hallFull);
     expect(store.getState().status).toBe('all_halls_full');
+  });
+});
+
+describe('HallConnection: rituals', () => {
+  it('sends ritual requests', () => {
+    const { connection, sockets } = setup();
+    connection.connect(1);
+    sockets[0]!.open();
+    connection.startRitual('bow');
+    connection.stopRitual();
+    expect(sockets[0]!.sent.slice(-2)).toEqual([
+      { type: 'ritual_start', ritualId: 'bow' },
+      { type: 'ritual_stop' },
+    ]);
+  });
+
+  it('keeps the start time of everyone who is performing a ritual', () => {
+    const { connection, sockets, ritualClock, advanceClock } = setup();
+    connection.connect(1);
+    sockets[0]!.open();
+    sockets[0]!.receive(welcome());
+    advanceClock(500);
+    sockets[0]!.receive({ type: 'ritual_started', playerId: 'player-self-xx', ritualId: 'greet' });
+    expect(ritualClock.get('player-self-xx')).toEqual({ ritualId: 'greet', startedAtMs: 1500 });
+    sockets[0]!.receive({ type: 'ritual_ended', playerId: 'player-self-xx' });
+    expect(ritualClock.get('player-self-xx')).toBeUndefined();
+  });
+
+  it('forgets the ritual of someone who leaves', () => {
+    const { connection, sockets, ritualClock } = setup();
+    connection.connect(1);
+    sockets[0]!.open();
+    sockets[0]!.receive(welcome());
+    sockets[0]!.receive({ type: 'ritual_started', playerId: 'player-self-xx', ritualId: 'greet' });
+    sockets[0]!.receive({ type: 'player_left', playerId: 'player-self-xx' });
+    expect(ritualClock.get('player-self-xx')).toBeUndefined();
+  });
+
+  it('records which ritual did not start when the hall has no place for it', () => {
+    const { connection, sockets, store } = setup();
+    connection.connect(1);
+    sockets[0]!.open();
+    sockets[0]!.receive(welcome());
+    connection.startRitual('bow');
+    sockets[0]!.receive({ type: 'error', code: 'no_slot_free' });
+    expect(store.getState().ritualNotice).toEqual({ code: 'no_slot_free', ritualId: 'bow' });
+    connection.startRitual('lamp');
+    sockets[0]!.receive({ type: 'error', code: 'lamp_limit' });
+    expect(store.getState().ritualNotice).toEqual({ code: 'lamp_limit', ritualId: 'lamp' });
   });
 });

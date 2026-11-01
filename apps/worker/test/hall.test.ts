@@ -1,5 +1,5 @@
-import { SELF, env, evictAllDurableObjects, runInDurableObject } from 'cloudflare:test';
-import { CLOSE_CODE, DEFAULT_CONFIG, hallRoomName } from '@temple/shared';
+import { SELF, evictAllDurableObjects } from 'cloudflare:test';
+import { CLOSE_CODE, DEFAULT_CONFIG } from '@temple/shared';
 import { describe, expect, it, vi } from 'vitest';
 import {
   connect,
@@ -9,6 +9,7 @@ import {
   joinWithAssignment,
   ORIGIN,
   reportedCounts,
+  sweepAt,
   waitForReportedCount,
 } from './helpers';
 
@@ -16,14 +17,6 @@ const { maxPlayers, idleKickSec, joinTimeoutSec } = DEFAULT_CONFIG.hall;
 const MS_PER_SECOND = 1000;
 /** A point inside the flagship hall's walkable area. */
 const INSIDE = { x: 1, z: 2 };
-
-function stubFor(hall: number) {
-  return env.TempleRoom.getByName(hallRoomName('flagship', hall));
-}
-
-async function sweepAt(hall: number, atMs: number): Promise<void> {
-  await runInDurableObject(stubFor(hall), (room) => room.sweepExpired(atMs));
-}
 
 describe('requests the Worker refuses', () => {
   const upgrade = { Upgrade: 'websocket' };

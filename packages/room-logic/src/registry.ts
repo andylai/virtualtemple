@@ -6,6 +6,7 @@ import {
   type NicknameIds,
   type PlayerView,
   type Point,
+  type RitualId,
 } from '@temple/shared';
 import { hasSpace } from './capacity';
 import { nicknameKey, pickNickname, type NicknameWords } from './nickname';
@@ -15,9 +16,21 @@ const SPAWN_DEPTH = 2;
 /** Keeps a new visitor off the very edge of the walkable area, in metres. */
 const SPAWN_MARGIN = 0.5;
 
-/** A person in the hall. */
-export interface Player extends PlayerView {
+/** What a person is doing for a ritual, kept on the server. */
+export interface ActiveRitual {
+  ritualId: RitualId;
+  /** `walking`: on the way to a cushion they were given. `performing`: doing the ritual. */
+  phase: 'walking' | 'performing';
+  /** The cushion, for a bow. */
+  slotId?: string;
+  /** When a walk times out, or when the performance ends. */
+  endsAtMs: number;
+}
+
+/** A person in the hall. `ritual` here is the server's full record; others see only `PlayerView.ritual`. */
+export interface Player extends Omit<PlayerView, 'ritual'> {
   joinedAtMs: number;
+  ritual: ActiveRitual | null;
 }
 
 /** Everything the registry needs to know about the hall. */
@@ -80,6 +93,7 @@ export class PlayerRegistry {
       z: spawn.z,
       facing: 0,
       joinedAtMs: nowMs,
+      ritual: null,
     };
     this.players.set(player.id, player);
     return { ok: true, player };
@@ -96,7 +110,7 @@ export class PlayerRegistry {
     if (!hasSpace(this.players.size, this.options.maxPlayers)) {
       return { ok: false, reason: 'hall_full' };
     }
-    const player = { ...previous, nickname: this.chooseNickname(previous.nickname) };
+    const player = { ...previous, ritual: null, nickname: this.chooseNickname(previous.nickname) };
     this.players.set(player.id, player);
     return { ok: true, player };
   }
@@ -134,6 +148,20 @@ export class PlayerRegistry {
     player.facing = ((facing % 360) + 360) % 360;
     this.moved.set(playerId, player);
     return 'ok';
+  }
+
+  /**
+   * Puts a person at a place without checking the walkable area, for places the server chose
+   * itself (a cushion). They are counted as moved, so everyone is told.
+   */
+  setPosition(playerId: string, x: number, z: number, facing: number): void {
+    const player = this.players.get(playerId);
+    if (player !== undefined) {
+      player.x = x;
+      player.z = z;
+      player.facing = facing;
+      this.moved.set(playerId, player);
+    }
   }
 
   /** Whether anyone has moved since the last call to `drainMoved`. */
