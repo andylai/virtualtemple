@@ -15,16 +15,18 @@ export function RitualBar({ onStart, onStop, canStop }: RitualBarProps) {
   const t = useT();
   return (
     <div className="ritual-bar">
-      {flagshipManifest.rituals.map((id) => (
-        <button
-          key={id}
-          type="button"
-          aria-keyshortcuts={RITUALS[id].keys.join(' ')}
-          onClick={() => onStart(id)}
-        >
-          {t(RITUAL_BUTTON_KEYS[id])}
-        </button>
-      ))}
+      {flagshipManifest.rituals
+        .filter((id) => RITUALS[id].quick)
+        .map((id) => (
+          <button
+            key={id}
+            type="button"
+            aria-keyshortcuts={RITUALS[id].keys.join(' ')}
+            onClick={() => onStart(id)}
+          >
+            {t(RITUAL_BUTTON_KEYS[id])}
+          </button>
+        ))}
       {canStop && (
         <button type="button" className="stop" onClick={onStop}>
           {t('ritual.stop')}

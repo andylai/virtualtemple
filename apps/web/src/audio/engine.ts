@@ -36,6 +36,10 @@ export class AudioEngine {
   private personalWanted = false;
   private communal: { session: Session; clockOffsetMs: number } | null = null;
   private communalTimer: ReturnType<typeof setTimeout> | null = null;
+  private paused = false;
+  private pageVisible = true;
+  private backgroundPlay = false;
+  private suspended = false;
   private readonly listeners = new Set<() => void>();
   private snapshot: EngineSnapshot;
 
@@ -92,10 +96,35 @@ export class AudioEngine {
       this.gains[layer] = gain;
     }
     void context.resume();
+    this.applySuspension();
     void this.loadBuffer('ambient').then((buffer) => this.loop(buffer, 'ambient'));
     if (this.communal !== null) {
       void this.applyCommunal();
     }
+  }
+
+  /** Silences everything, for example while the visitor has left the hall. `unpause` brings it back. */
+  pause(): void {
+    this.paused = true;
+    this.applySuspension();
+  }
+
+  /** Brings the sound back after `pause`. */
+  unpause(): void {
+    this.paused = false;
+    this.applySuspension();
+  }
+
+  /** Says whether sound may keep playing while the tab is in the background (FR-25). */
+  setBackgroundPlay(allowed: boolean): void {
+    this.backgroundPlay = allowed;
+    this.applySuspension();
+  }
+
+  /** Tells the engine whether the tab can be seen, so it can go quiet in the background if that is wanted. */
+  setPageVisible(visible: boolean): void {
+    this.pageVisible = visible;
+    this.applySuspension();
   }
 
   /** Sets one layer's volume, kept between 0 and 1. */
@@ -199,6 +228,31 @@ export class AudioEngine {
       this.communal = null;
       this.stopChant('communal');
       this.notify();
+    }
+  }
+
+  /** Stops or restarts the browser's audio clock as the visitor's choices and the tab's state require. */
+  private applySuspension(): void {
+    const context = this.context;
+    if (context === null) {
+      return;
+    }
+    const shouldSuspend = this.paused || (!this.pageVisible && !this.backgroundPlay);
+    if (shouldSuspend && !this.suspended) {
+      this.suspended = true;
+      void context.suspend();
+    } else if (!shouldSuspend && this.suspended) {
+      this.suspended = false;
+      void context.resume().then(() => this.resyncCommunal());
+    }
+  }
+
+  /** After a pause the communal chanting is behind the others, so it is started again at the right place. */
+  private resyncCommunal(): void {
+    if (this.communal !== null) {
+      this.clearCommunalTimer();
+      this.stopChant('communal');
+      void this.applyCommunal();
     }
   }
 

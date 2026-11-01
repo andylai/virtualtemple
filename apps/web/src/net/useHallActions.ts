@@ -1,6 +1,7 @@
 import type { RitualId } from '@temple/shared';
 import { useCallback, useEffect } from 'react';
 import type { HallClient } from './hallClient';
+import { INITIAL_HALL_STATE } from './hallState';
 
 /** What the interface can ask of the halls. */
 export interface HallActions {
@@ -14,6 +15,8 @@ export interface HallActions {
   startRitual: (ritualId: RitualId) => void;
   /** Asks the hall to end the visitor's ritual and free their cushion. */
   stopRitual: () => void;
+  /** Leaves the hall and forgets who was in it. */
+  leave: () => void;
   /** Hides a toast that was shown long enough. */
   dismissToast: (id: number) => void;
   /** Hides the message that a ritual did not start. */
@@ -49,6 +52,11 @@ export function useHallActions(client: HallClient): HallActions {
       [client],
     ),
     stopRitual: useCallback(() => client.connection.stopRitual(), [client]),
+    leave: useCallback(() => {
+      client.flow.dispose();
+      client.connection.close();
+      client.store.setState(INITIAL_HALL_STATE);
+    }, [client]),
     dismissToast: useCallback(
       (id: number) =>
         update((state) => ({ ...state, toasts: state.toasts.filter((toast) => toast.id !== id) })),

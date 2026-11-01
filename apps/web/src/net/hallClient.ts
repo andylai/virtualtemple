@@ -1,5 +1,6 @@
 import { DEFAULT_CONFIG, parseHallNumber, type LanguageCode } from '@temple/shared';
 import { HallConnection, sessionTokenStorage, type TokenStorage } from './connection';
+import { preferencesStore } from '../prefs/preferences';
 import { fetchHalls } from './hallsApi';
 import { INITIAL_HALL_STATE, type HallState } from './hallState';
 import { TrackSet } from './interpolation';
@@ -56,6 +57,7 @@ export function createHallClient(language: LanguageCode, requestedHall: number |
     requestedHall,
     hallCount: DEFAULT_CONFIG.hall.count,
     maxTries: DEFAULT_CONFIG.hall.joinRetries,
+    rememberedNickname: () => preferencesStore().getState().nickname,
   });
   return { store, tracks, ritualClock, connection, flow, tokens };
 }

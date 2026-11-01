@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
 import type { LanguageCode } from '@temple/shared';
 import type { MessageKey } from './en';
-import { pickLanguage, translate, type MessageParams } from './translate';
+import { usePreferences } from '../prefs/usePreferences';
+import { CATALOGS, pickLanguage, translate, type MessageParams } from './translate';
 
 type Translator = (key: MessageKey, params?: MessageParams) => string;
 
@@ -14,11 +15,13 @@ const I18nContext = createContext<I18nValue | null>(null);
 
 /** Supplies `t()` to the app and keeps the page's `lang` attribute in step. */
 export function I18nProvider({ children }: { children: ReactNode }) {
+  const preferred = usePreferences().language;
   const value = useMemo(() => {
-    const language = pickLanguage(navigator.languages);
+    const chosen = preferred !== null && CATALOGS[preferred] !== undefined ? preferred : null;
+    const language = chosen ?? pickLanguage(navigator.languages);
     const t: Translator = (key, params) => translate(language, key, params);
     return { language, t };
-  }, []);
+  }, [preferred]);
   useEffect(() => {
     document.documentElement.lang = value.language;
     document.title = value.t('app.title');

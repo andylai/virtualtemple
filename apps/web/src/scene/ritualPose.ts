@@ -18,6 +18,10 @@ const BOW_PITCH = 1.1;
 const BOW_DOWN_SHARE = 0.25;
 const BOW_UP_SHARE = 0.25;
 const LAMP_PULSE = 0.25;
+/** Sitting lowers the body and leans it a little, settling in over the first moments. */
+const SIT_LIFT = -0.22;
+const SIT_PITCH = 0.12;
+const SIT_SETTLE_MS = 800;
 
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
 const smooth = (t: number): number => t * t * (3 - 2 * t);
@@ -46,5 +50,10 @@ export function ritualPose(ritualId: RitualId, elapsedMs: number): Pose {
     }
     case 'lamp':
       return { ...REST_POSE, scale: 1 + LAMP_PULSE * Math.sin(Math.PI * t) };
+    case 'sit': {
+      const settled = smooth(clamp01(elapsedMs / SIT_SETTLE_MS));
+      // Adding 0 turns a negative zero into a plain zero.
+      return { ...REST_POSE, pitch: SIT_PITCH * settled, lift: SIT_LIFT * settled + 0 };
+    }
   }
 }

@@ -150,13 +150,19 @@ export class RitualEngine {
     return this.finish(outcome);
   }
 
-  /** A person has just moved. Arriving at the cushion starts the bow; walking away ends it. */
+  /** A person has just moved. Arriving at the cushion starts the bow or the sitting; walking away ends it. */
   onMove(playerId: string, nowMs: number): RitualOutcome {
     const outcome = this.empty();
     const player = this.options.players.get(playerId);
     const ritual = player?.ritual;
     const cushion = this.cushionOf(ritual?.slotId);
-    if (player !== undefined && ritual?.ritualId === 'bow' && cushion !== undefined) {
+    if (
+      player !== undefined &&
+      ritual !== null &&
+      ritual !== undefined &&
+      RITUALS[ritual.ritualId].needsSeat &&
+      cushion !== undefined
+    ) {
       const away = distance(player, cushion);
       if (ritual.phase === 'walking' && away <= ARRIVE_RADIUS_M) {
         this.arrive(player, cushion, nowMs, outcome);
@@ -207,7 +213,7 @@ export class RitualEngine {
 
   /** Works out what a ritual needs (a cushion or a lamp place) before anything is changed. */
   private plan(player: Player, ritualId: RitualId): Plan {
-    if (ritualId === 'bow') {
+    if (RITUALS[ritualId].needsSeat) {
       const slot = this.nearestFreeCushion(player);
       return slot === null ? { error: 'no_slot_free' } : { slot };
     }
@@ -229,7 +235,7 @@ export class RitualEngine {
     nowMs: number,
     outcome: RitualOutcome,
   ): void {
-    if (ritualId === 'bow' && slot !== null && 'facing' in slot) {
+    if (RITUALS[ritualId].needsSeat && slot !== null && 'facing' in slot) {
       this.cushionOwners.set(slot.id, player.id);
       this.setRitual(
         player,
@@ -279,23 +285,22 @@ export class RitualEngine {
     nowMs: number,
     outcome: RitualOutcome,
   ): void {
+    const ritualId = player.ritual?.ritualId;
+    if (ritualId === undefined) {
+      return;
+    }
     this.options.players.setPosition(player.id, cushion.x, cushion.z, cushion.facing);
     this.setRitual(
       player,
       {
-        ritualId: 'bow',
+        ritualId,
         phase: 'performing',
         slotId: cushion.id,
-        endsAtMs: nowMs + RITUALS.bow.durationMs,
+        endsAtMs: nowMs + RITUALS[ritualId].durationMs,
       },
       outcome,
     );
-    outcome.effects.push({
-      type: 'started',
-      playerId: player.id,
-      ritualId: 'bow',
-      slotId: cushion.id,
-    });
+    outcome.effects.push({ type: 'started', playerId: player.id, ritualId, slotId: cushion.id });
   }
 
   /** Ends whatever the person is doing and frees their cushion. `announce` tells others it ended. */

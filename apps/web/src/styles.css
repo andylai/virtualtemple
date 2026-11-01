@@ -219,3 +219,47 @@ body {
 .slider input {
   width: 100%;
 }
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 12px;
+  text-align: left;
+}
+
+.credits {
+  padding-left: 18px;
+  text-align: left;
+}
+
+.credits a {
+  color: #c9a227;
+}
+
+.slider select {
+  padding: 6px;
+  font-size: 1rem;
+}
+
+.meditation {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(29, 26, 22, 0.88);
+}
+
+.meditation button {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: #f4ecdc;
+  color: #1d1a16;
+  cursor: pointer;
+}

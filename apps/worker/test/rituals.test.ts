@@ -160,6 +160,57 @@ describe('bow and cushions', () => {
   });
 });
 
+describe('sitting for meditation', () => {
+  /** Asks to sit, walks to the cushion, and waits until the hall says the sitting has begun. */
+  async function sitDown(visitor: Visitor) {
+    visitor.client.send({ type: 'ritual_start', ritualId: 'sit' });
+    const walk = await visitor.client.waitFor('ritual_walk');
+    const spot = cushion(walk.slotId);
+    visitor.client.send({ type: 'move', x: spot.x, z: spot.z, facing: 0 });
+    await visitor.client.waitFor(
+      'ritual_started',
+      (m) =>
+        m.playerId === visitor.welcome.playerId && m.ritualId === 'sit' && m.slotId === walk.slotId,
+    );
+    return walk.slotId;
+  }
+
+  it('seats the person on a cushion and keeps them there well past the length of a bow', async () => {
+    const sitter = await joinHall(12);
+    const watcher = await joinHall(12);
+    const slotId = await sitDown(sitter);
+    await watcher.client.waitFor(
+      'ritual_started',
+      (m) => m.ritualId === 'sit' && m.slotId === slotId,
+    );
+    await sweepAt(12, Date.now() + 10 * MS_PER_SECOND);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(watcher.client.of('ritual_ended')).toEqual([]);
+  });
+
+  it('frees the cushion when the person stands up', async () => {
+    const sitter = await joinHall(13);
+    const slotId = await sitDown(sitter);
+    const others = await Promise.all(
+      Array.from({ length: cushions.length - 1 }, () => joinHall(13)),
+    );
+    await Promise.all(others.map((visitor) => askToBow(visitor)));
+
+    sitter.client.send({ type: 'ritual_stop' });
+    await settle();
+    const next = await joinHall(13);
+    expect((await askToBow(next)).slotId).toBe(slotId);
+  });
+
+  it('shows newcomers who is already sitting', async () => {
+    const sitter = await joinHall(14);
+    const slotId = await sitDown(sitter);
+    const newcomer = await joinHall(14);
+    const seen = newcomer.welcome.players.find((p) => p.id === sitter.welcome.playerId);
+    expect(seen?.ritual).toEqual({ ritualId: 'sit', slotId });
+  });
+});
+
 describe('lamps', () => {
   it('lights a lamp for everyone to see, and shows it to people who join later', async () => {
     const lighter = await joinHall(7);

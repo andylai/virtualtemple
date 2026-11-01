@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { HallState } from '../net/hallState';
+import { preferencesStore } from '../prefs/preferences';
+import { usePreferences } from '../prefs/usePreferences';
 import { createAudioEngine } from './createAudioEngine';
 import type { AudioEngine } from './engine';
 import { selfSounds, soundSnapshot, type SoundSnapshot } from './selfSounds';
@@ -18,6 +20,33 @@ export function useHallAudio(state: HallState): AudioEngine {
       engine.scheduleCommunal(state.chanting, state.clockOffsetMs);
     }
   }, [engine, state.chanting, state.clockOffsetMs]);
+
+  const { backgroundPlay } = usePreferences();
+  useEffect(() => engine.setBackgroundPlay(backgroundPlay), [engine, backgroundPlay]);
+
+  // Keep the volumes the visitor sets, so they are the same next time (FR-3).
+  useEffect(
+    () =>
+      engine.subscribe(() => {
+        const volumes = engine.getVolumes();
+        const saved = preferencesStore().getState().volumes;
+        if (
+          volumes.ambient !== saved.ambient ||
+          volumes.chanting !== saved.chanting ||
+          volumes.sfx !== saved.sfx
+        ) {
+          preferencesStore().update({ volumes: { ...volumes } });
+        }
+      }),
+    [engine],
+  );
+
+  useEffect(() => {
+    const report = () => engine.setPageVisible(document.visibilityState === 'visible');
+    report();
+    document.addEventListener('visibilitychange', report);
+    return () => document.removeEventListener('visibilitychange', report);
+  }, [engine]);
 
   const previous = useRef<SoundSnapshot | null>(null);
   useEffect(() => {

@@ -2,6 +2,7 @@ import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import type { Group } from 'three';
 import type { RitualClock } from '../net/ritualClock';
+import { useReducedMotion } from '../prefs/usePreferences';
 import { AVATAR_BASE_Y, Avatar } from './Avatar';
 import { REST_POSE, ritualPose } from './ritualPose';
 
@@ -18,10 +19,12 @@ interface AnimatedAvatarProps {
  */
 export function AnimatedAvatar({ playerId, avatarId, isSelf = false, clock }: AnimatedAvatarProps) {
   const pivot = useRef<Group>(null);
+  const reduceMotion = useRef(false);
+  reduceMotion.current = useReducedMotion();
   useFrame(() => {
     const run = clock.get(playerId);
-    const pose =
-      run === undefined ? REST_POSE : ritualPose(run.ritualId, performance.now() - run.startedAtMs);
+    const still = run === undefined || reduceMotion.current;
+    const pose = still ? REST_POSE : ritualPose(run.ritualId, performance.now() - run.startedAtMs);
     if (pivot.current !== null) {
       pivot.current.rotation.x = -pose.pitch;
       pivot.current.position.y = -AVATAR_BASE_Y + pose.lift;

@@ -96,4 +96,23 @@ describe('parseManifest', () => {
       '"lamp" needs at least one lamp slot',
     );
   });
+
+  it('accepts credits with a secure link and refuses an insecure one or one without a licence', () => {
+    const credit = {
+      title: { en: 'Chanting' },
+      by: 'Someone',
+      license: 'CC BY 4.0',
+      url: 'https://example.org/work',
+    };
+    expect(problemsOf({ ...base, credits: [credit] })).toBe('');
+    expect(problemsOf({ ...base, credits: [{ ...credit, url: 'http://example.org' }] })).toContain(
+      'credits',
+    );
+    expect(problemsOf({ ...base, credits: [{ ...credit, license: '' }] })).toContain('credits');
+  });
+
+  it('needs a cushion for sitting as well as for the bow', () => {
+    const noSeats = { ...base, rituals: ['greet', 'sit'], hall: hallWith({ cushions: [] }) };
+    expect(problemsOf(noSeats)).toContain('"sit" needs at least one cushion');
+  });
 });

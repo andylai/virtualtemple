@@ -54,8 +54,8 @@ FR numbers are stable IDs, not a running order. Requirements added after the fir
 ### 3.1 Entry and identity
 - FR-1: No login. The visitor presses "Enter" to start (also unlocks browser audio).
 - FR-2: The server assigns a nickname built from two word IDs (an adjective and a noun) from the manifest's word lists. The client never sends free text as a nickname.
-- FR-3: "Remember me": the client stores the two word IDs and audio settings in `localStorage`. On rejoin it sends the IDs; the server validates them against the lists and falls back to a new random pair if invalid or already in use in the room.
-- FR-4: A gentle exit screen shows when the visitor leaves, with a "stay again" button.
+- FR-3: "Remember me": the browser keeps the visitor's nickname (the two word ids), the three volumes, the background-play and reduce-motion choices and the chosen language in `localStorage` under one key. Nothing else is stored, and no server stores anything. On a later visit the nickname is sent in `join`, and the server keeps it if both words exist and nobody has it. Whatever is read back is checked field by field and a bad or missing field falls back to its default, so edited or old data cannot cause harm; where storage is blocked (private windows) the page works as if nothing were remembered.
+- FR-4: A "Leave" button closes the visitor's connection, silences the sound and shows a gentle exit screen ("Did you rest well?") with a "Stay again" button that joins a hall again. (A browser tab that is simply closed cannot show a screen.)
 - FR-40: Reconnection. If the connection drops, the client reconnects automatically with a short back-off. The `welcome` message carries an opaque `resumeToken` (random, no personal data). A reconnect that presents the token within `hall.reconnectGraceSec` restores the same player, nickname and cushion. The grace period does not reserve a place in a full hall: if the hall is full on return, FR-7 applies. After the grace period the player is removed, and a later reconnect joins as a new player.
 - FR-41: Idle handling. While the page is visible (including during the meditation timer) the client sends a `ping` every `net.pingSec`. A connection that has sent nothing for `hall.idleKickSec` has its cushion released and is closed with the `idle_timeout` code. The client then shows "You were away. Press Enter to return."
 
@@ -102,10 +102,10 @@ Rituals are config entries in the manifest (id, key binding, animation, sound, d
 ### 3.6 Audio
 - FR-23: Three independent layers with their own volume sliders: ambient, chanting, and sound effects (bell, lamp).
 - FR-24: Personal chanting can be played by the visitor between communal sessions. When a communal session starts, personal chanting stops and the shared chanting plays.
-- FR-25: A "keep playing in background" toggle controls whether audio continues when the tab is hidden (best effort on mobile, which may still pause it).
+- FR-25: A "keep playing in background" toggle (off by default, to spare batteries) controls whether audio continues when the tab is hidden (best effort on mobile, which may still pause it). When sound was paused and comes back, the communal chanting is restarted at the right place for the time that passed.
 - FR-26: Audio starts only after the visitor presses "Enter", to satisfy browser autoplay rules. The ambient layer starts then.
 - FR-43: Placeholder sounds. Until real recordings exist, every sound is made in code (wind, a chant-like hum, a bell, a lamp chime). The manifest's audio paths name the real recordings; a recording that cannot be loaded (missing, or a page where the file should be) is replaced by its placeholder. A bell rings as the visitor's own bow begins and when a communal session begins on time; a chime rings when the visitor lights a lamp. Other people's rituals are seen, not heard.
-- FR-44: A "Sound" button opens a panel with the three volume sliders and a button to play or stop the visitor's own chanting (which pauses while a communal session plays). The background-play toggle, language and reduce-motion settings arrive in M6 (FR-36).
+- FR-44: The "Settings" button opens a panel with the three volume sliders and a button to play or stop the visitor's own chanting (which pauses while a communal session plays), plus the settings of FR-36.
 
 ### 3.7 Communal chanting
 - FR-27: The room reads the schedule (times plus time zone) from the manifest. When a session comes within `audio.preloadLeadSec` of starting (proposed 120 s), the server broadcasts `chanting_start` with the absolute start time in UTC milliseconds, the duration and the recording's id, and `chanting_end` when it is over. Announcing early is what lets browsers download the recording first (FR-42). The same session announced again changes nothing. The schedule is worked out from the clock on the temple's time zone, using the platform's own time zone support and no library, so nothing is stored and a hall that was unloaded from memory picks it up again. The session length is `audio.chantingDurationSec` in the manifest (the length of the recording; 300 s for the placeholder). Announcements go out from the alarm, so they can be up to `hall.sweepSec` late, which is harmless because the start time is absolute.
@@ -121,12 +121,12 @@ Behaviour is described in intent.md section 3 ("Special-day banner"). Requiremen
 - FR-33: For a special day, the room schedules the extra chanting times in addition to the regular ones.
 
 ### 3.9 Meditation timer
-- FR-34: The visitor picks a duration from `meditation.options` (proposed 5, 10, 15 minutes), then sits on a cushion. A bell rings at the end.
-- FR-35: The timer runs in the browser only. Seating uses the same server-assigned cushions as `bow`; leaving or stopping releases the cushion.
+- FR-34: The visitor picks a duration from `meditation.options` (proposed 5, 10, 15 minutes), then sits on a cushion. The clock starts when they are on the cushion and is measured with timestamps, so a tab in the background still ends on time. A bell rings at the end and the visitor is stood up. A request that is refused (no cushion) or never turns into walking is dropped.
+- FR-35: The timer runs in the browser only. Seating uses the ritual `sit` (not a button or a key): `ritual_start` with `sit` reserves the nearest free cushion exactly as `bow` does, and `ritual_stop` releases it. The hall holds a sitting for up to 20 minutes, more than the longest timer, and ends it when the person walks more than 1.2 m from the cushion or leaves. Others see the person sit and get a toast. (This replaces the separate `sit` and `stand` messages of the first draft.)
 
 ### 3.10 Settings and UI
-- FR-36: A settings panel has the three volume sliders, the background-play toggle, a language selector, and "reduce motion".
-- FR-37: Credits for third-party assets are shown in an "About" panel.
+- FR-36: A settings panel has the three volume sliders, the background-play toggle, a language selector (shown only when more than one language has translations), and "reduce motion" (which follows the device's setting until the visitor chooses; when on, avatars do not lean, bob or pulse). It also has a button to forget everything the browser remembers.
+- FR-37: Credits for third-party assets are shown in an "About" panel, from the manifest's `credits` list (title, author, licence and an optional secure link). The panel also says what is stored in the browser. With no credits it says no third-party work is used yet.
 - FR-38: The layout works at phone width, with touch controls and on-screen ritual buttons.
 
 ### 3.11 Languages
@@ -255,8 +255,6 @@ JSON messages over one WebSocket. Every message has a `type`. Types and validati
 | `move` | `{ x, z, facing }` | Rate limited; position must be inside the walkable area. |
 | `ritual_start` | `{ ritualId }` | `ritualId` must be in the manifest. |
 | `ritual_stop` | `{}` | Cancels the current ritual, or the walk to a cushion, and releases the cushion. |
-| `sit` | `{}` | Reserve a cushion for the meditation timer. |
-| `stand` | `{}` | Release the cushion. |
 | `ping` | `{}` | Sent every `net.pingSec` while the page is visible (FR-41). |
 
 ### 6.2 Server → client
@@ -317,8 +315,9 @@ One manifest ships with the app. The room, Worker and frontend read it through a
     "slots": { "altarBackdrop": "...", "banner": "...", "plaque": "...", "statue": "..." }
   },
   "audio": { "ambient": "...", "chanting": "...", "chantingDurationSec": 300, "sfx": { "bell": "...", "lamp": "..." } },
-  "rituals": ["greet", "bow", "lamp"],
+  "rituals": ["greet", "bow", "lamp", "sit"],
   "nicknames": { "adjectives": ["..."], "nouns": ["..."] },
+  "credits": [],
   "donation": null
 }
 ```

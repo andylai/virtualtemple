@@ -14,6 +14,8 @@ export interface JoinFlowDeps {
   hallCount: number;
   /** How many halls to try before giving up (`hall.joinRetries`). */
   maxTries: number;
+  /** The nickname the visitor had last time, if the browser remembers one. */
+  rememberedNickname: () => NicknameIds | null;
 }
 
 /**
@@ -87,7 +89,9 @@ export class JoinFlow {
   private tryHall(hall: number, nickname?: NicknameIds): void {
     this.tried.add(hall);
     this.currentHall = hall;
-    this.deps.link.connect(hall, { nickname });
+    this.deps.link.connect(hall, {
+      nickname: nickname ?? this.deps.rememberedNickname() ?? undefined,
+    });
   }
 
   private onChange(): void {

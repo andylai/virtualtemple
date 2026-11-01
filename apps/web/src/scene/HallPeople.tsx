@@ -1,6 +1,7 @@
 import { flagshipManifest } from '@temple/shared/flagship';
 import type { Point } from '@temple/shared';
 import { useEffect, useRef, type MutableRefObject } from 'react';
+import { holdsCushion } from '../meditation/useMeditation';
 import type { HallClient } from '../net/hallClient';
 import type { HallState } from '../net/hallState';
 import { RemotePlayers } from './RemotePlayers';
@@ -59,7 +60,7 @@ export function HallPeople({ client, state, walkTarget }: HallPeopleProps) {
           walkableArea={flagshipManifest.hall.walkableArea}
           sendHz={state.positionSendHz}
           onMove={(x, z, facing) => client.connection.sendMove(x, z, facing)}
-          onKeyMove={() => stopBowIfBusy(client, client.store.getState())}
+          onKeyMove={() => stopSeatedIfBusy(client, client.store.getState())}
           walkTarget={walkTarget}
           snap={snap}
         />
@@ -68,10 +69,10 @@ export function HallPeople({ client, state, walkTarget }: HallPeopleProps) {
   );
 }
 
-/** Walking away by hand cancels a bow that is under way, and frees the cushion. */
-export function stopBowIfBusy(client: HallClient, state: HallState): void {
+/** Walking away by hand ends a bow or a sitting that is under way, and frees the cushion. */
+export function stopSeatedIfBusy(client: HallClient, state: HallState): void {
   const self = state.selfId === null ? undefined : state.players.get(state.selfId);
-  if (state.walk !== null || self?.ritual?.ritualId === 'bow') {
+  if (state.walk !== null || holdsCushion(self?.ritual?.ritualId)) {
     client.connection.stopRitual();
   }
 }

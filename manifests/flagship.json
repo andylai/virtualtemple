@@ -160,7 +160,7 @@
     },
     "chantingDurationSec": 300
   },
-  "rituals": ["greet", "bow", "lamp"],
+  "rituals": ["greet", "bow", "lamp", "sit"],
   "nicknames": {
     "adjectives": [
       {
@@ -311,5 +311,6 @@
       }
     ]
   },
-  "donation": null
+  "donation": null,
+  "credits": []
 }

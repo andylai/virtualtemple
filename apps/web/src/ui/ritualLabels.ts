@@ -7,6 +7,7 @@ export const RITUAL_BUTTON_KEYS: Readonly<Record<RitualId, MessageKey>> = {
   greet: 'ritual.greet',
   bow: 'ritual.bow',
   lamp: 'ritual.lamp',
+  sit: 'ritual.sit',
 };
 
 /** The toast text of each ritual, shown to the others in the hall. */
@@ -14,6 +15,7 @@ export const RITUAL_TOAST_KEYS: Readonly<Record<RitualId, MessageKey>> = {
   greet: 'toast.greet',
   bow: 'toast.bow',
   lamp: 'toast.lamp',
+  sit: 'toast.sit',
 };
 
 /**

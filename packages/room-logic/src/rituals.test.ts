@@ -34,7 +34,7 @@ function setup(overrides: Partial<RitualEngineOptions> = {}, hallSize = 10, idPr
   });
   const engine = new RitualEngine({
     players,
-    offered: ['greet', 'bow', 'lamp'],
+    offered: ['greet', 'bow', 'lamp', 'sit'],
     cushions,
     lampSlots,
     cooldownMs: COOLDOWN,
@@ -278,5 +278,59 @@ describe('rebuild after the hall was evicted', () => {
     });
     const ended = second.engine.runDue(10_000);
     expect(ended.effects.some((e) => e.type === 'ended' && e.playerId === id)).toBe(true);
+  });
+});
+
+describe('sitting for meditation', () => {
+  it('reserves the nearest cushion, begins on arrival, and is announced like a bow', () => {
+    const { engine, person, players } = setup();
+    const id = person(2.5, 6);
+    expect(engine.start(id, 'sit', 0).effects).toEqual([
+      { type: 'walk', playerId: id, slotId: 'cushion-3', x: 3, z: 0, facing: 0 },
+    ]);
+    players.applyMove(id, 3.1, 0.2, 0);
+    expect(engine.onMove(id, 1_000).effects).toEqual([
+      { type: 'started', playerId: id, ritualId: 'sit', slotId: 'cushion-3' },
+    ]);
+    expect(players.get(id)).toMatchObject({ x: 3, z: 0 });
+  });
+
+  it('is held far longer than a bow, so a timer of up to fifteen minutes can run', () => {
+    const { engine, person, players } = setup();
+    const id = person(3, 0.1);
+    engine.start(id, 'sit', 0);
+    expect(engine.runDue(10 * 60_000).effects).toEqual([]);
+    expect(players.get(id)?.ritual).toMatchObject({ ritualId: 'sit', phase: 'performing' });
+    expect(types(engine.runDue(20 * 60_000).effects)).toEqual(['ended']);
+  });
+
+  it('shares the cushions with the bow, so nobody gets a cushion that someone else holds', () => {
+    const { engine, person } = setup();
+    const sitter = person(0, 0.1);
+    const bower = person(0, 0.2);
+    const a = engine.start(sitter, 'sit', 0).effects[0];
+    const b = engine.start(bower, 'bow', 0).effects[0];
+    expect(a).toMatchObject({ slotId: 'cushion-2' });
+    expect(b).toMatchObject({ slotId: 'cushion-1' });
+  });
+
+  it('ends when the person walks away, and frees the cushion when they stop', () => {
+    const { engine, person, players } = setup();
+    const walker = person(0, 0.1);
+    engine.start(walker, 'sit', 0);
+    players.applyMove(walker, 0, 5, 0);
+    expect(engine.onMove(walker, 1_000).effects).toEqual([{ type: 'ended', playerId: walker }]);
+    const stopper = person(0, 0.1);
+    engine.start(stopper, 'sit', 2_000);
+    expect(types(engine.stop(stopper).effects)).toEqual(['ended']);
+    expect(engine.start(person(0, 0.1), 'bow', 3_000).effects[0]).toMatchObject({
+      slotId: 'cushion-2',
+    });
+  });
+
+  it('says there is no cushion when they are all taken', () => {
+    const { engine, person } = setup();
+    cushions.forEach(() => engine.start(person(0, 5), 'sit', 0));
+    expect(engine.start(person(0, 5), 'sit', 0).error).toBe('no_slot_free');
   });
 });

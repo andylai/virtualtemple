@@ -8,10 +8,15 @@ import { useHallAudio } from './audio/useHallAudio';
 import type { HallState } from './net/hallState';
 import { useHallActions, type HallActions } from './net/useHallActions';
 import { buildHallLayout } from './scene/hallLayout';
-import { HallPeople, stopBowIfBusy } from './scene/HallPeople';
+import { HallPeople, stopSeatedIfBusy } from './scene/HallPeople';
 import { HallScene } from './scene/HallScene';
 import { readDebugFlags } from './scene/queryFlags';
+import { useMeditation, type Meditation } from './meditation/useMeditation';
+import { useRememberNickname } from './prefs/useRememberNickname';
 import { ChantingBanner } from './ui/ChantingBanner';
+import { useLeaving } from './ui/useLeaving';
+import { ExitScreen } from './ui/ExitScreen';
+import { MeditationBar } from './ui/Meditation';
 import { EnterOverlay } from './ui/EnterOverlay';
 import { FpsCounter } from './ui/FpsCounter';
 import { HallStatus } from './ui/HallStatus';
@@ -28,20 +33,27 @@ function HallOverlays({
   state,
   actions,
   engine,
+  meditation,
+  onLeave,
 }: {
   state: HallState;
   actions: HallActions;
   engine: AudioEngine;
+  meditation: Meditation;
+  onLeave: () => void;
 }) {
   return (
     <>
       <Hud state={state} />
       <SpecialDayBanner state={state} />
       <ChantingBanner state={state} />
+      <MeditationBar meditation={meditation} />
       <Toasts toasts={state.toasts} onDismiss={actions.dismissToast} />
       <Toolbar
         state={state}
         engine={engine}
+        meditation={meditation}
+        onLeave={onLeave}
         onPickHall={actions.switchHall}
         onNoticeShown={actions.clearNotice}
         onStartRitual={actions.startRitual}
@@ -59,6 +71,9 @@ function HallView({ client }: { client: HallClient }) {
   const state = useSyncExternalStore(client.store.subscribe, client.store.getState);
   const actions = useHallActions(client);
   const engine = useHallAudio(state);
+  const meditation = useMeditation(state, engine, actions.startRitual, actions.stopRitual);
+  useRememberNickname(state);
+  const { left, leave, stayAgain } = useLeaving(actions, engine, meditation);
   const walkTarget = useRef<Point | null>(null);
   const [sceneReady, setSceneReady] = useState(false);
   const [entered, setEntered] = useState(false);
@@ -74,7 +89,7 @@ function HallView({ client }: { client: HallClient }) {
   const clickFloor = useCallback(
     (point: Point) => {
       walkTarget.current = point;
-      stopBowIfBusy(client, client.store.getState());
+      stopSeatedIfBusy(client, client.store.getState());
     },
     [client],
   );
@@ -90,12 +105,22 @@ function HallView({ client }: { client: HallClient }) {
       >
         <HallPeople client={client} state={state} walkTarget={walkTarget} />
       </HallScene>
-      {entered ? (
+      {left ? (
+        <ExitScreen onStayAgain={stayAgain} />
+      ) : entered ? (
         <HallStatus state={state} onRetry={actions.join} />
       ) : (
         <EnterOverlay sceneReady={sceneReady} onEnter={enter} />
       )}
-      <HallOverlays state={state} actions={actions} engine={engine} />
+      {!left && (
+        <HallOverlays
+          state={state}
+          actions={actions}
+          engine={engine}
+          meditation={meditation}
+          onLeave={leave}
+        />
+      )}
       {flags.debug && <FpsCounter detail={`${flags.stress} stand-in avatars`} />}
     </>
   );

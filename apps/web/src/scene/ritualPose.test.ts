@@ -17,7 +17,7 @@ describe('ritualPose', () => {
       const pose = ritualPose(id, ms);
       expect(pose.pitch).toBeGreaterThanOrEqual(0);
       expect(pose.pitch).toBeLessThan(Math.PI / 2 + 0.1);
-      expect(pose.lift).toBeGreaterThanOrEqual(0);
+      expect(pose.lift).toBeGreaterThan(-0.3);
       expect(pose.lift).toBeLessThan(0.2);
       expect(pose.scale).toBeGreaterThanOrEqual(1);
       expect(pose.scale).toBeLessThan(1.5);
@@ -39,5 +39,13 @@ describe('ritualPose', () => {
 
   it('pulses for the lamp', () => {
     expect(ritualPose('lamp', RITUALS.lamp.durationMs / 2).scale).toBeGreaterThan(1.2);
+  });
+
+  it('lowers and settles for sitting, and stays that way for as long as the sitting lasts', () => {
+    const early = ritualPose('sit', 100);
+    const settled = ritualPose('sit', 5_000);
+    expect(settled.lift).toBeLessThan(early.lift);
+    expect(settled.lift).toBeLessThan(-0.15);
+    expect(ritualPose('sit', 10 * 60_000)).toEqual(settled);
   });
 });

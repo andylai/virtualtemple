@@ -26,6 +26,11 @@ class FakeSource extends FakeNode {
 class FakeContext {
   destination = new FakeNode();
   resumed = false;
+  suspended = false;
+  suspend() {
+    this.suspended = true;
+    return Promise.resolve();
+  }
   gains: FakeGain[] = [];
   sources: FakeSource[] = [];
   createGain() {
@@ -40,6 +45,7 @@ class FakeContext {
   }
   resume() {
     this.resumed = true;
+    this.suspended = false;
     return Promise.resolve();
   }
 }
@@ -268,5 +274,61 @@ describe('communal chanting', () => {
     engine.scheduleCommunal(SESSION, 0);
     await settle();
     expect(playing(chantingGain)).toHaveLength(0);
+  });
+});
+
+describe('pausing and the background', () => {
+  it('goes quiet when paused and comes back when unpaused', async () => {
+    const { engine, context } = setup();
+    engine.unlock();
+    await settle();
+    engine.pause();
+    expect(context.suspended).toBe(true);
+    engine.unpause();
+    await settle();
+    expect(context.suspended).toBe(false);
+  });
+
+  it('goes quiet in the background unless the visitor allows sound there', async () => {
+    const { engine, context } = setup();
+    engine.unlock();
+    await settle();
+    engine.setPageVisible(false);
+    expect(context.suspended).toBe(true);
+    engine.setPageVisible(true);
+    await settle();
+    expect(context.suspended).toBe(false);
+    engine.setBackgroundPlay(true);
+    engine.setPageVisible(false);
+    expect(context.suspended).toBe(false);
+  });
+
+  it('stays quiet in the background even if the visitor un-pauses, and the other way round', async () => {
+    const { engine, context } = setup();
+    engine.unlock();
+    await settle();
+    engine.pause();
+    engine.setPageVisible(false);
+    engine.unpause();
+    expect(context.suspended).toBe(true);
+    engine.setPageVisible(true);
+    await settle();
+    expect(context.suspended).toBe(false);
+  });
+
+  it('puts the communal chanting back at the right place after a pause', async () => {
+    const { engine, playing, chantingGain } = setup();
+    vi.setSystemTime(START + 10_000);
+    engine.unlock();
+    engine.scheduleCommunal(SESSION, 0);
+    await settle();
+    expect(playing(chantingGain)[0]).toMatchObject({ started: { offset: 10 } });
+    engine.pause();
+    await vi.advanceTimersByTimeAsync(45_000);
+    engine.unpause();
+    await settle();
+    const sources = playing(chantingGain);
+    expect(sources[0]!.stopped).toBe(true);
+    expect(sources[1]).toMatchObject({ started: { offset: 55 }, stopped: false });
   });
 });

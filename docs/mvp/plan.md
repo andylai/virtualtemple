@@ -461,3 +461,24 @@ What has not been heard or seen: no sound has been listened to by a person (the 
 Known limits: the background-play toggle, language selector and reduce-motion are M6; the volumes are not remembered between visits (M6 remember me); if the recording is longer than the session the end cuts it off, so set `chantingDurationSec` to the recording's length.
 
 Next: M6 (meditation timer, remember me, exit screen, settings and credits panels).
+
+---
+
+## 19. M6 status (2026-11-01)
+
+| Task | Status |
+|---|---|
+| M6-1 Meditation timer | Done: 5, 10 or 15 minutes (from the config); the visitor sits through the `sit` ritual; the clock starts when they are on the cushion and uses timestamps; a bell rings and they are stood up at the end; others see them sit and get a toast. The hall holds a sitting for up to 20 minutes. |
+| M6-2 Remember me | Done: one `localStorage` key for nickname ids, volumes, background play, reduce motion and language, validated field by field, safe when storage is blocked; a "Forget my name and settings" button. |
+| M6-3 Exit screen | Done: a Leave button, a goodbye screen with "Stay again", and the sound is silenced meanwhile. |
+| M6-4 Settings and credits | Done: a Settings panel (volumes, own chanting, background play, reduce motion, language when there is more than one, forget) and an About panel (what is stored, credits from the manifest). |
+
+Also: background play is off by default and the communal chanting is restarted at the right place after sound was paused. Reduce motion follows the device until chosen. The Sound button became the Settings button.
+
+Tests: 426 in total (shared 91, room-logic 78, web 201, worker 56). A scripted visitor on the real local servers sat for 9 seconds without the sitting ending (a bow ends after 6) and ended it by standing up.
+
+Not seen on screen: the Meditate, Settings, About and Leave buttons, the timer bar, the exit screen and the reduced-motion behaviour. Not done: a name picker (open as an option, see the earlier discussion); the language selector has nothing to select until Malay or Chinese texts exist (open question O-1); the credits list is empty.
+
+**The committed manifest still has the test chanting time `22:33` in place of `18:00`** (your edit, swept into the M5 commit). Restore `18:00` before launch, or give me the go-ahead and I will.
+
+Next: M7 (mobile layout and touch, asset pipeline, real art swap, performance, accessibility, translations, error states and share previews).

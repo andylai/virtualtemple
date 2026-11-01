@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { isPointInPolygon, type Point } from './geometry';
+import { RITUALS } from './rituals';
 
 /** Ritual ids the app knows how to perform (spec section 3.4). */
-export const RITUAL_IDS = ['greet', 'bow', 'lamp'] as const;
+export const RITUAL_IDS = ['greet', 'bow', 'lamp', 'sit'] as const;
 /** Languages the interface can be translated into. English is the first and always present. */
 export const LANGUAGE_CODES = ['en', 'ms', 'zh'] as const;
 /** Buddhist traditions a temple can declare. `undecided` is the placeholder until open question O-2. */
@@ -34,6 +35,14 @@ const itemId = z.string().regex(/^[a-z0-9-]{1,40}$/);
 const localizedText = z
   .partialRecord(z.enum(LANGUAGE_CODES), z.string().min(1))
   .refine((text) => text.en !== undefined, 'an English (en) text is required');
+
+/** Someone whose work the temple uses, shown in the About panel (FR-37). */
+const credit = z.object({
+  title: localizedText,
+  by: z.string().min(1),
+  license: z.string().min(1),
+  url: z.url({ protocol: /^https$/ }).optional(),
+});
 
 const cushion = z.object({ id: itemId, x: coordinate, z: coordinate, facing: coordinate });
 const lampSlot = z.object({ id: itemId, x: coordinate, z: coordinate });
@@ -81,6 +90,7 @@ export const manifestSchema = z
       adjectives: z.array(word).min(1),
       nouns: z.array(word).min(1),
     }),
+    credits: z.array(credit),
     donation: z.object({ type: z.literal('link'), url: z.url({ protocol: /^https$/ }) }).nullable(),
   })
   .superRefine((manifest, context) => {
@@ -123,8 +133,10 @@ function crossFieldProblems(manifest: z.infer<typeof manifestSchema>): string[] 
   if (!manifest.languages.includes('en')) {
     problems.push('languages: must include "en"');
   }
-  if (manifest.rituals.includes('bow') && hall.cushions.length === 0) {
-    problems.push('rituals: "bow" needs at least one cushion');
+  for (const id of manifest.rituals) {
+    if (RITUALS[id].needsSeat && hall.cushions.length === 0) {
+      problems.push(`rituals: "${id}" needs at least one cushion`);
+    }
   }
   if (manifest.rituals.includes('lamp') && hall.lampSlots.length === 0) {
     problems.push('rituals: "lamp" needs at least one lamp slot');

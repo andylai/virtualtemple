@@ -1,19 +1,25 @@
 import { DEFAULT_CONFIG, type RitualId } from '@temple/shared';
 import { useEffect } from 'react';
 import type { AudioEngine } from '../audio/engine';
+import type { Meditation } from '../meditation/useMeditation';
 import { useT } from '../i18n/I18nProvider';
 import type { HallState } from '../net/hallState';
 import { ChangeHall } from './ChangeHall';
 import { InviteButton } from './InviteButton';
 import { RitualBar } from './RitualBar';
 import { ritualNoticeKey } from './ritualLabels';
-import { SoundPanel } from './SoundPanel';
+import { AboutPanel } from './AboutPanel';
+import { MeditateButton } from './Meditation';
+import { SettingsPanel } from './SettingsPanel';
 
 const MS_PER_SECOND = 1000;
 
 interface ToolbarProps {
   state: HallState;
   engine: AudioEngine;
+  meditation: Meditation;
+  /** Called when the visitor chooses to leave the hall. */
+  onLeave: () => void;
   onPickHall: (hall: number) => void;
   /** Called when the "placed in another hall" message has been shown long enough. */
   onNoticeShown: () => void;
@@ -39,6 +45,8 @@ export function Toolbar(props: ToolbarProps) {
   const {
     state,
     engine,
+    meditation,
+    onLeave,
     onPickHall,
     onNoticeShown,
     onStartRitual,
@@ -73,7 +81,12 @@ export function Toolbar(props: ToolbarProps) {
       <div className="toolbar">
         <ChangeHall currentHall={state.hall} onPick={onPickHall} />
         <InviteButton hall={state.hall} />
-        <SoundPanel engine={engine} />
+        <MeditateButton meditation={meditation} />
+        <SettingsPanel engine={engine} />
+        <AboutPanel />
+        <button type="button" onClick={onLeave}>
+          {t('exit.button')}
+        </button>
       </div>
     </>
   );

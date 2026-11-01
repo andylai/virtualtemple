@@ -18,6 +18,7 @@ function setup(
     listing?: HallsResponse | null;
     saved?: SavedToken | null;
     maxTries?: number;
+    remembered?: { adjectiveId: string; nounId: string };
   } = {},
 ) {
   const connects: { hall: number; options: ConnectOptions | undefined }[] = [];
@@ -47,6 +48,7 @@ function setup(
     requestedHall: options.requestedHall ?? null,
     hallCount: 20,
     maxTries: options.maxTries ?? 5,
+    rememberedNickname: () => options.remembered ?? null,
   });
   /** What the connection does when a hall refuses: the error message, then the close. */
   const refuse = (
@@ -167,5 +169,32 @@ describe('JoinFlow: switching halls', () => {
     t.flow.switchTo(5, null);
     t.refuse(6);
     expect(halls(t.connects)).toEqual([5, 6]);
+  });
+});
+
+describe('JoinFlow: remembered nickname', () => {
+  const remembered = { adjectiveId: 'calm', nounId: 'lotus' };
+
+  it('asks for the remembered nickname when joining, and again in the next hall after a refusal', async () => {
+    const t = setup({ listing: listing(1), remembered });
+    await t.flow.start();
+    t.refuse(2);
+    expect(t.connects).toEqual([
+      { hall: 1, options: { nickname: remembered } },
+      { hall: 2, options: { nickname: remembered } },
+    ]);
+  });
+
+  it('asks for nothing special when no nickname is remembered', async () => {
+    const t = setup({ listing: listing(1) });
+    await t.flow.start();
+    expect(t.connects).toEqual([{ hall: 1, options: { nickname: undefined } }]);
+  });
+
+  it('prefers the nickname given for a hall change over the remembered one', () => {
+    const t = setup({ remembered });
+    const current = { adjectiveId: 'kind', nounId: 'tree' };
+    t.flow.switchTo(3, current);
+    expect(t.connects).toEqual([{ hall: 3, options: { nickname: current } }]);
   });
 });
