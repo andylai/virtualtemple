@@ -10,6 +10,7 @@ import {
   type TempleManifest,
 } from '@temple/shared';
 import {
+  ChantingSchedule,
   PlayerRegistry,
   RitualEngine,
   TokenBucket,
@@ -30,6 +31,7 @@ import {
   type PendingState,
 } from './connectionState';
 import { DirectoryReporter } from './directoryReporter';
+import { HallChanting } from './hallChanting';
 import { HallRituals } from './hallRituals';
 import { manifestFor } from './manifests';
 import { Telemetry } from './telemetry';
@@ -56,6 +58,7 @@ export class TempleRoom extends Server<Env> {
   private cachedTelemetry: Telemetry | null = null;
   private cachedReporter: DirectoryReporter | null = null;
   private cachedRituals: HallRituals | null = null;
+  private cachedChanting: HallChanting | null = null;
   private savedLamps: LampRecord[] = [];
   private readonly limiters = new Map<string, TokenBucket>();
   private readonly strikes = new Map<string, { count: number; lastAtMs: number }>();
@@ -128,6 +131,21 @@ export class TempleRoom extends Server<Env> {
     // Reading the registry builds the rituals as well.
     void this.registry;
     return this.cachedRituals as HallRituals;
+  }
+
+  private get chanting(): HallChanting {
+    this.cachedChanting ??= new HallChanting({
+      schedule: new ChantingSchedule({
+        timeZone: this.manifest.timezone,
+        regularTimes: this.manifest.chantingSchedule,
+        specialDays: this.manifest.specialDays,
+        durationMs: this.manifest.audio.chantingDurationSec * MS_PER_SECOND,
+        leadMs: this.config.audio.preloadLeadSec * MS_PER_SECOND,
+      }),
+      audioId: 'chanting',
+      broadcast: (message) => this.sendToAdmitted(message),
+    });
+    return this.cachedChanting;
   }
 
   private newRegistry(): PlayerRegistry {
@@ -243,6 +261,7 @@ export class TempleRoom extends Server<Env> {
   async sweepExpired(nowMs: number): Promise<void> {
     this.closeSilentConnections(nowMs);
     this.rituals.runDue(nowMs);
+    this.syncChanting(nowMs);
     const remainingGraces = await this.dropExpiredGraces(nowMs);
     this.telemetry.event('sweep', { remaining_graces: remainingGraces });
     this.reporter.heartbeat(nowMs);
@@ -250,6 +269,16 @@ export class TempleRoom extends Server<Env> {
     if (remainingGraces > 0 || [...this.getConnections()].length > 0) {
       await this.ctx.storage.setAlarm(nowMs + this.alarmPeriodMs());
     }
+  }
+
+  /**
+   * Tells everyone when a chanting session has become current or has ended. Runs with the alarm;
+   * public so tests can set the time.
+   *
+   * @param nowMs - The current time in milliseconds.
+   */
+  syncChanting(nowMs: number): void {
+    this.chanting.update(nowMs);
   }
 
   private closeSilentConnections(nowMs: number): void {
@@ -376,6 +405,9 @@ export class TempleRoom extends Server<Env> {
   }
 
   private welcomeFor(player: Player, resumeToken: string): ServerMessage {
+    const nowMs = Date.now();
+    const chanting = this.chanting.current(nowMs);
+    const specialDay = this.chanting.specialDay(nowMs);
     return {
       type: 'welcome',
       playerId: player.id,
@@ -386,9 +418,11 @@ export class TempleRoom extends Server<Env> {
       players: this.registry.list().map(toView),
       lamps: this.rituals.litLamps(),
       population: this.registry.size,
-      serverTimeMs: Date.now(),
+      serverTimeMs: nowMs,
       positionSendHz: this.config.net.positionSendHz,
       pingSec: this.config.net.pingSec,
+      ...(chanting === undefined ? {} : { chanting }),
+      ...(specialDay === undefined ? {} : { specialDay }),
     };
   }
 

@@ -1,16 +1,19 @@
 import { DEFAULT_CONFIG, type RitualId } from '@temple/shared';
 import { useEffect } from 'react';
+import type { AudioEngine } from '../audio/engine';
 import { useT } from '../i18n/I18nProvider';
 import type { HallState } from '../net/hallState';
 import { ChangeHall } from './ChangeHall';
 import { InviteButton } from './InviteButton';
 import { RitualBar } from './RitualBar';
 import { ritualNoticeKey } from './ritualLabels';
+import { SoundPanel } from './SoundPanel';
 
 const MS_PER_SECOND = 1000;
 
 interface ToolbarProps {
   state: HallState;
+  engine: AudioEngine;
   onPickHall: (hall: number) => void;
   /** Called when the "placed in another hall" message has been shown long enough. */
   onNoticeShown: () => void;
@@ -33,8 +36,15 @@ function useExpiry(active: boolean, onDone: () => void): void {
 
 /** The buttons along the bottom while the visitor is in a hall, and the short messages about the hall. */
 export function Toolbar(props: ToolbarProps) {
-  const { state, onPickHall, onNoticeShown, onStartRitual, onStopRitual, onRitualNoticeShown } =
-    props;
+  const {
+    state,
+    engine,
+    onPickHall,
+    onNoticeShown,
+    onStartRitual,
+    onStopRitual,
+    onRitualNoticeShown,
+  } = props;
   const t = useT();
   const joined = state.status === 'joined' && state.hall !== null;
   const notice = joined ? state.notice : null;
@@ -63,6 +73,7 @@ export function Toolbar(props: ToolbarProps) {
       <div className="toolbar">
         <ChangeHall currentHall={state.hall} onPick={onPickHall} />
         <InviteButton hall={state.hall} />
+        <SoundPanel engine={engine} />
       </div>
     </>
   );

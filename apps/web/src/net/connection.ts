@@ -12,6 +12,7 @@ import {
   type HallState,
   type HallStatus,
 } from './hallState';
+import { clockOffset } from '../audio/chantPlanner';
 import type { TrackSet } from './interpolation';
 import type { RitualClock } from './ritualClock';
 import type { Store } from './store';
@@ -69,6 +70,8 @@ export interface ConnectionDeps {
   tokens: TokenStorage;
   createSocket: (url: string) => WebSocket;
   now: () => number;
+  /** The time now in epoch milliseconds, to compare with the server's clock. */
+  epochNow: () => number;
   random: () => number;
   isPageVisible: () => boolean;
 }
@@ -167,7 +170,7 @@ export class HallConnection implements HallLink {
     }
     this.trackPeople(message);
     const next = applyServerMessage(this.deps.store.getState(), message);
-    this.deps.store.setState(this.withRitualNotice(next, message));
+    this.deps.store.setState(this.withClockOffset(this.withRitualNotice(next, message), message));
   }
 
   private welcomed(message: Extract<ServerMessage, { type: 'welcome' }>): void {
@@ -203,6 +206,13 @@ export class HallConnection implements HallLink {
     } else if (message.type === 'ritual_ended') {
       this.deps.ritualClock.stop(message.playerId);
     }
+  }
+
+  /** Learns how far this browser's clock is from the server's, from the time in the welcome (FR-30). */
+  private withClockOffset(state: HallState, message: ServerMessage): HallState {
+    return message.type === 'welcome'
+      ? { ...state, clockOffsetMs: clockOffset(message.serverTimeMs, this.deps.epochNow()) }
+      : state;
   }
 
   /** Remembers that a ritual did not start, with the ritual the visitor had asked for. */

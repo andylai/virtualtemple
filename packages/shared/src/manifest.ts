@@ -72,6 +72,8 @@ export const manifestSchema = z
     audio: z.object({
       ambient: assetPath,
       chanting: assetPath,
+      /** How long a communal chanting session lasts: the length of the chanting recording. */
+      chantingDurationSec: z.number().int().positive(),
       sfx: z.object({ bell: assetPath, lamp: assetPath }),
     }),
     rituals: z.array(z.enum(RITUAL_IDS)).min(1),

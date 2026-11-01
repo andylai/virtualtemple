@@ -102,6 +102,27 @@ describe('ritual messages', () => {
   });
 });
 
+describe('chanting messages', () => {
+  it('accepts a session announcement and its end', () => {
+    const start = {
+      type: 'chanting_start',
+      startAtMs: 1_800_000_000_000,
+      durationMs: 300_000,
+      audioId: 'chanting',
+    };
+    expect(parseServerMessage(JSON.stringify(start)).ok).toBe(true);
+    expect(parseServerMessage(JSON.stringify({ type: 'chanting_end' })).ok).toBe(true);
+  });
+
+  it('refuses a session with no length or a negative start', () => {
+    const bad = { type: 'chanting_start', startAtMs: 1, durationMs: 0, audioId: 'chanting' };
+    expect(parseServerMessage(JSON.stringify(bad)).ok).toBe(false);
+    expect(parseServerMessage(JSON.stringify({ ...bad, startAtMs: -5, durationMs: 10 })).ok).toBe(
+      false,
+    );
+  });
+});
+
 describe('refusal messages', () => {
   it('accepts a hall_full error with the next hall, or none', () => {
     const withNext = { type: 'error', code: 'hall_full', nextHall: 3 };

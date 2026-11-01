@@ -1,9 +1,11 @@
 import {
   DEFAULT_CONFIG,
+  type ChantingSession,
   type NicknameIds,
   type PlayerView,
   type RitualId,
   type ServerMessage,
+  type SpecialDay,
 } from '@temple/shared';
 
 /** Where the visitor stands with the hall. */
@@ -72,6 +74,12 @@ export interface HallState {
   toasts: readonly Toast[];
   toastSeq: number;
   ritualNotice: RitualNotice | null;
+  /** The communal chanting that is on, or about to start. */
+  chanting: ChantingSession | null;
+  /** Today's special day, or null. */
+  specialDay: SpecialDay | null;
+  /** What to add to this browser's clock to get the server's, in milliseconds. */
+  clockOffsetMs: number;
 }
 
 /** Defaults used until the server's welcome arrives. */
@@ -95,6 +103,9 @@ export const INITIAL_HALL_STATE: HallState = {
   toasts: [],
   toastSeq: 0,
   ritualNotice: null,
+  chanting: null,
+  specialDay: null,
+  clockOffsetMs: 0,
 };
 
 /**
@@ -104,24 +115,7 @@ export const INITIAL_HALL_STATE: HallState = {
 export function applyServerMessage(state: HallState, message: ServerMessage): HallState {
   switch (message.type) {
     case 'welcome':
-      return {
-        status: 'joined',
-        hall: message.hall,
-        selfId: message.playerId,
-        nickname: message.nickname,
-        avatarId: message.avatarId,
-        population: message.population,
-        players: new Map(message.players.map((player) => [player.id, player])),
-        positionSendHz: message.positionSendHz,
-        pingSec: message.pingSec,
-        refusal: null,
-        notice: state.notice,
-        lamps: new Map(message.lamps.map((lamp) => [lamp.slotId, lamp.ownerId])),
-        walk: null,
-        toasts: [],
-        toastSeq: state.toastSeq,
-        ritualNotice: null,
-      };
+      return welcomed(state, message);
     case 'player_joined':
       return { ...state, players: new Map(state.players).set(message.player.id, message.player) };
     case 'player_left': {
@@ -135,6 +129,42 @@ export function applyServerMessage(state: HallState, message: ServerMessage): Ha
       return message.code === 'hall_full' || message.code === 'all_halls_full'
         ? { ...state, refusal: { code: message.code, nextHall: message.nextHall } }
         : state;
+    default:
+      return applyActivityMessage(state, message);
+  }
+}
+
+/** What the welcome sets: everything about the hall as it is now. */
+function welcomed(
+  state: HallState,
+  message: Extract<ServerMessage, { type: 'welcome' }>,
+): HallState {
+  return {
+    status: 'joined',
+    hall: message.hall,
+    selfId: message.playerId,
+    nickname: message.nickname,
+    avatarId: message.avatarId,
+    population: message.population,
+    players: new Map(message.players.map((player) => [player.id, player])),
+    positionSendHz: message.positionSendHz,
+    pingSec: message.pingSec,
+    refusal: null,
+    notice: state.notice,
+    lamps: new Map(message.lamps.map((lamp) => [lamp.slotId, lamp.ownerId])),
+    walk: null,
+    toasts: [],
+    toastSeq: state.toastSeq,
+    ritualNotice: null,
+    chanting: message.chanting ?? null,
+    specialDay: message.specialDay ?? null,
+    clockOffsetMs: state.clockOffsetMs,
+  };
+}
+
+/** Rituals, lamps and communal chanting: what happens in the hall once people are in it. */
+function applyActivityMessage(state: HallState, message: ServerMessage): HallState {
+  switch (message.type) {
     case 'ritual_started':
       return withRitual(state, message.playerId, {
         ritualId: message.ritualId,
@@ -154,6 +184,12 @@ export function applyServerMessage(state: HallState, message: ServerMessage): Ha
       lamps.delete(message.slotId);
       return { ...state, lamps };
     }
+    case 'chanting_start': {
+      const { startAtMs, durationMs, audioId } = message;
+      return { ...state, chanting: { startAtMs, durationMs, audioId } };
+    }
+    case 'chanting_end':
+      return { ...state, chanting: null };
     default:
       return state;
   }

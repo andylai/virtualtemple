@@ -6,7 +6,7 @@
   "tradition": "undecided",
   "languages": ["en"],
   "timezone": "Asia/Kuala_Lumpur",
-  "chantingSchedule": ["05:00", "18:00"],
+  "chantingSchedule": ["05:00", "22:33"],
   "specialDays": [],
   "hall": {
     "template": "blockout",
@@ -157,7 +157,8 @@
     "sfx": {
       "bell": "audio/bell.opus",
       "lamp": "audio/lamp.opus"
-    }
+    },
+    "chantingDurationSec": 300
   },
   "rituals": ["greet", "bow", "lamp"],
   "nicknames": {

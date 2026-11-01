@@ -37,6 +37,23 @@ export const playerViewSchema = z.object({
 });
 export type PlayerView = z.infer<typeof playerViewSchema>;
 
+const specialDayName = z.partialRecord(z.enum(LANGUAGE_CODES), z.string().min(1));
+
+/** A communal chanting session: when it starts, how long it lasts, and which recording is played. */
+export const chantingSessionSchema = z.object({
+  startAtMs: z.number().int().nonnegative(),
+  durationMs: z.number().int().positive(),
+  audioId: itemId,
+});
+export type ChantingSession = z.infer<typeof chantingSessionSchema>;
+
+/** Today's special day, with its name in every language the temple has. */
+export const specialDaySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  name: specialDayName,
+});
+export type SpecialDay = z.infer<typeof specialDaySchema>;
+
 /** Messages a browser may send. Strict: unknown fields are refused (spec section 6.3). */
 export const clientMessageSchema = z.discriminatedUnion('type', [
   z.strictObject({
@@ -68,6 +85,10 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
     serverTimeMs: z.number().int().nonnegative(),
     positionSendHz: z.number().positive(),
     pingSec: z.number().positive(),
+    /** The chanting session that is on now, or that starts within the preload lead time. */
+    chanting: chantingSessionSchema.optional(),
+    /** Set when today, on the temple's calendar, is a special day. */
+    specialDay: specialDaySchema.optional(),
   }),
   z.object({ type: z.literal('player_joined'), player: playerViewSchema }),
   z.object({ type: z.literal('player_left'), playerId }),
@@ -89,6 +110,9 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('lamp_lit'), slotId: itemId, ownerId: playerId }),
   z.object({ type: z.literal('lamp_out'), slotId: itemId }),
+  /** A session is on, or will start at `startAtMs`; sent early enough for browsers to download the recording. */
+  z.object({ type: z.literal('chanting_start'), ...chantingSessionSchema.shape }),
+  z.object({ type: z.literal('chanting_end') }),
   z.object({
     type: z.literal('error'),
     code: z.enum([

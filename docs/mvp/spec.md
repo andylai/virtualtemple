@@ -103,12 +103,14 @@ Rituals are config entries in the manifest (id, key binding, animation, sound, d
 - FR-23: Three independent layers with their own volume sliders: ambient, chanting, and sound effects (bell, lamp).
 - FR-24: Personal chanting can be played by the visitor between communal sessions. When a communal session starts, personal chanting stops and the shared chanting plays.
 - FR-25: A "keep playing in background" toggle controls whether audio continues when the tab is hidden (best effort on mobile, which may still pause it).
-- FR-26: Audio starts only after the visitor presses "Enter", to satisfy browser autoplay rules.
+- FR-26: Audio starts only after the visitor presses "Enter", to satisfy browser autoplay rules. The ambient layer starts then.
+- FR-43: Placeholder sounds. Until real recordings exist, every sound is made in code (wind, a chant-like hum, a bell, a lamp chime). The manifest's audio paths name the real recordings; a recording that cannot be loaded (missing, or a page where the file should be) is replaced by its placeholder. A bell rings as the visitor's own bow begins and when a communal session begins on time; a chime rings when the visitor lights a lamp. Other people's rituals are seen, not heard.
+- FR-44: A "Sound" button opens a panel with the three volume sliders and a button to play or stop the visitor's own chanting (which pauses while a communal session plays). The background-play toggle, language and reduce-motion settings arrive in M6 (FR-36).
 
 ### 3.7 Communal chanting
-- FR-27: The room reads the schedule (times plus time zone) from the manifest. At each scheduled time the server broadcasts `chanting_start` with an absolute start time in UTC milliseconds and a duration.
+- FR-27: The room reads the schedule (times plus time zone) from the manifest. When a session comes within `audio.preloadLeadSec` of starting (proposed 120 s), the server broadcasts `chanting_start` with the absolute start time in UTC milliseconds, the duration and the recording's id, and `chanting_end` when it is over. Announcing early is what lets browsers download the recording first (FR-42). The same session announced again changes nothing. The schedule is worked out from the clock on the temple's time zone, using the platform's own time zone support and no library, so nothing is stored and a hall that was unloaded from memory picks it up again. The session length is `audio.chantingDurationSec` in the manifest (the length of the recording; 300 s for the placeholder). Announcements go out from the alarm, so they can be up to `hall.sweepSec` late, which is harmless because the start time is absolute.
 - FR-28: Audio is not streamed. Each client plays its own copy of the chanting file, offset by `now - startAt`.
-- FR-29: A player who joins during a session receives the current session in the welcome message and starts at the right position.
+- FR-29: A player who joins during a session, or within the lead time of one, receives it as `chanting` in the welcome message and starts at the right position. A recording shorter than the session repeats, and everyone is at the same place in it.
 - FR-30: The client estimates the clock difference with the server from the welcome message's `serverTimeMs` and uses it for FR-28. An offset of under ~200 ms is acceptable.
 - FR-42: Preloading. The client starts downloading the chanting audio `audio.preloadLeadSec` before a scheduled session, and on join when a session is active. If the file is not ready at `startAtMs`, the client starts playing from the correct offset as soon as it is ready, and never delays other listeners.
 
@@ -261,7 +263,7 @@ JSON messages over one WebSocket. Every message has a `type`. Types and validati
 
 | Type | Payload |
 |---|---|
-| `welcome` | `{ playerId, resumeToken, hall, nickname, avatarId, players[], population, serverTimeMs, positionSendHz, pingSec }`, later also `seats, lamps, specialDay?, chanting?` |
+| `welcome` | `{ playerId, resumeToken, hall, nickname, avatarId, players[], lamps[], population, serverTimeMs, positionSendHz, pingSec, chanting?, specialDay? }` |
 | `player_joined` / `player_left` | `{ player }` / `{ playerId }` |
 | `snapshot` | `{ tick, moves: [{ playerId, x, z, facing }] }` |
 | `ritual_started` | `{ playerId, ritualId, slotId? }`: the ritual is being performed now (for a bow, on arrival, with the cushion) |
@@ -269,7 +271,7 @@ JSON messages over one WebSocket. Every message has a `type`. Types and validati
 | `ritual_ended` | `{ playerId }` |
 | `lamp_lit` / `lamp_out` | `{ slotId, ownerId }` / `{ slotId }` |
 | `population` | `{ count }` |
-| `chanting_start` | `{ startAtMs, durationMs, audioId }` |
+| `chanting_start` | `{ startAtMs, durationMs, audioId }`: a session is on or starts at `startAtMs`; sent early (FR-27) |
 | `chanting_end` | `{}` |
 | `error` | `{ code, nextHall? }` (`nextHall` only with `hall_full` and `all_halls_full`) with codes `hall_full`, `all_halls_full`, `invalid_message`, `rate_limited`, `no_slot_free`, `lamp_limit`, `not_allowed`, `idle_timeout` |
 
@@ -314,7 +316,7 @@ One manifest ships with the app. The room, Worker and frontend read it through a
     "lampSlots": ["..."],
     "slots": { "altarBackdrop": "...", "banner": "...", "plaque": "...", "statue": "..." }
   },
-  "audio": { "ambient": "...", "chanting": "...", "sfx": { "bell": "...", "lamp": "..." } },
+  "audio": { "ambient": "...", "chanting": "...", "chantingDurationSec": 300, "sfx": { "bell": "...", "lamp": "..." } },
   "rituals": ["greet", "bow", "lamp"],
   "nicknames": { "adjectives": ["..."], "nouns": ["..."] },
   "donation": null

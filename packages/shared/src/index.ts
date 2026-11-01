@@ -4,4 +4,5 @@ export * from './geometry';
 export * from './halls';
 export * from './manifest';
 export * from './rituals';
+export * from './time';
 export * from './messages';

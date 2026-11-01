@@ -65,6 +65,9 @@ const welcome = (resumeToken = 't'.repeat(32)): ServerMessage => ({
   pingSec: 30,
 });
 
+/** The browser's clock in epoch milliseconds, in these tests. */
+const EPOCH_NOW = 1_000_000;
+
 function setup() {
   const sockets: FakeSocket[] = [];
   let saved: SavedToken | null = null;
@@ -91,6 +94,7 @@ function setup() {
       return socket as unknown as WebSocket;
     },
     now: () => clock,
+    epochNow: () => EPOCH_NOW,
     random: () => 0.5,
     isPageVisible: () => visible,
   });
@@ -338,5 +342,39 @@ describe('HallConnection: rituals', () => {
     connection.startRitual('lamp');
     sockets[0]!.receive({ type: 'error', code: 'lamp_limit' });
     expect(store.getState().ritualNotice).toEqual({ code: 'lamp_limit', ritualId: 'lamp' });
+  });
+});
+
+describe('HallConnection: server clock and chanting', () => {
+  it('learns how far the browser clock is from the server clock from the welcome', () => {
+    const { connection, sockets, store } = setup();
+    connection.connect(1);
+    sockets[0]!.open();
+    sockets[0]!.receive({
+      ...(welcome() as Extract<ServerMessage, { type: 'welcome' }>),
+      serverTimeMs: EPOCH_NOW + 800,
+    });
+    expect(store.getState().clockOffsetMs).toBe(800);
+  });
+
+  it('keeps the chanting and special day that come with the welcome, and follows the session announcements', () => {
+    const { connection, sockets, store } = setup();
+    connection.connect(1);
+    sockets[0]!.open();
+    const session = { startAtMs: 5_000_000, durationMs: 300_000, audioId: 'chanting' };
+    sockets[0]!.receive({
+      ...(welcome() as Extract<ServerMessage, { type: 'welcome' }>),
+      chanting: session,
+      specialDay: { date: '2026-11-02', name: { en: 'Example day' } },
+    });
+    expect(store.getState().chanting).toEqual(session);
+    expect(store.getState().specialDay).toEqual({
+      date: '2026-11-02',
+      name: { en: 'Example day' },
+    });
+    sockets[0]!.receive({ type: 'chanting_end' });
+    expect(store.getState().chanting).toBeNull();
+    sockets[0]!.receive({ type: 'chanting_start', ...session });
+    expect(store.getState().chanting).toEqual(session);
   });
 });

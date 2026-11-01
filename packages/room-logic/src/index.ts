@@ -1,4 +1,5 @@
 export * from './capacity';
+export * from './chanting';
 export * from './dueQueue';
 export * from './halls';
 export * from './nickname';

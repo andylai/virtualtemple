@@ -44,6 +44,7 @@ export function createHallClient(language: LanguageCode, requestedHall: number |
     tokens,
     createSocket: (url) => new WebSocket(url),
     now: () => performance.now(),
+    epochNow: () => Date.now(),
     random: Math.random,
     isPageVisible: () => document.visibilityState === 'visible',
   });

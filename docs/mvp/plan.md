@@ -440,3 +440,24 @@ On the user's request the eight lamp places moved from a rack along the right wa
 ### Prayer beads removed (2026-11-01)
 
 On the user's request the prayer-beads ritual (key 2) was removed: its definition, animation, button, toast text, sound file entry (`audio.sfx.beads`) and tests are gone, and the manifest offers `greet`, `bow` and `lamp`. Key 2 now does nothing. The spec, intent and plan were updated to match. Adding it back later means a definition in `RITUALS`, an id in `RITUAL_IDS`, a pose, two texts and a manifest entry.
+
+---
+
+## 18. M5 status (2026-11-01)
+
+| Task | Status |
+|---|---|
+| M5-1 Audio engine | Done: three layers (ambient, chanting, effects) with their own volumes from the config defaults, unlocked by the Enter click, ambient loop on entry. |
+| M5-2 Effects and personal chanting | Done: bell as the visitor's own bow begins and when a communal session begins, chime for their own lamp; personal chanting that gives way to the communal one and is not brought back. A Sound panel has the three sliders and the personal chanting button. |
+| M5-3 Time in Malaysia | Done: `zonedParts`, `localTimeToUtcMs`, `localDate`, `addDays` using `Intl`, tested for Malaysia and for New York's clock changes. |
+| M5-4 Room schedule | Done: `ChantingSchedule` (regular times plus special-day extras) and `HallChanting`, which announces a session once it is within `audio.preloadLeadSec`, and its end; the welcome carries the current session. |
+| M5-5 Client sync | Done: clock offset from the welcome, `planChant` (wait, play at the right place, ended), late-arriving recordings start further in, a session announced before Enter plays after it. |
+| M5-6 Special days | Done: today's special day in the welcome and a banner in the visitor's language or English; extra chanting times join the schedule. The flagship manifest has no special days yet, so the banner has not been seen with real data. |
+
+Tests: 379 in total (shared 88, room-logic 73, web 165, worker 53). The Worker tests run the announcement flow at chosen times (nothing early, once within the lead, not repeated, end, quiet between sessions). A real local server at 21:43 Malaysia time correctly reported no session (the next is 05:00).
+
+What has not been heard or seen: no sound has been listened to by a person (the sounds are only checked as numbers: they are finite, loud enough, loop without a click and fade), and the Sound panel and banners have not been seen on screen (the browser pane was hidden). The placeholder chant is a hum, not a chant; the real recordings, their length (`audio.chantingDurationSec`), the licences and the religious advisor's approval are still open (O-2, O-4, O-5).
+
+Known limits: the background-play toggle, language selector and reduce-motion are M6; the volumes are not remembered between visits (M6 remember me); if the recording is longer than the session the end cuts it off, so set `chantingDurationSec` to the recording's length.
+
+Next: M6 (meditation timer, remember me, exit screen, settings and credits panels).

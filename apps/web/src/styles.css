@@ -184,3 +184,38 @@ body {
   background: rgba(29, 26, 22, 0.8);
   font-size: 0.9rem;
 }
+
+.special-day,
+.chanting-banner {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.special-day {
+  top: 8px;
+  background: #c9a227;
+  color: #1d1a16;
+}
+
+.chanting-banner {
+  top: 44px;
+  background: rgba(29, 26, 22, 0.85);
+}
+
+.slider {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 12px;
+  text-align: left;
+}
+
+.slider input {
+  width: 100%;
+}
