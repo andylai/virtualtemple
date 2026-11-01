@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "virtual-temple",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "durable_objects": {
+    "bindings": [
+      { "name": "TempleRoom", "class_name": "TempleRoom" },
+      { "name": "HallDirectory", "class_name": "HallDirectory" },
+    ],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TempleRoom", "HallDirectory"] }],
+  "vars": {
+    "TEMPLE_SLUG": "flagship",
+    "HALL_COUNT": "20",
+    "HALL_MAX_PLAYERS": "50",
+    "ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173",
+  },
+}
