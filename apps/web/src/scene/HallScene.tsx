@@ -1,6 +1,7 @@
 import { OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
-import { useMemo } from 'react';
+import type { Point } from '@temple/shared';
+import { useMemo, type ReactNode } from 'react';
 import { BlockoutHall } from './BlockoutHall';
 import type { HallLayout } from './hallLayout';
 import { scatterPoints } from './scatter';
@@ -25,10 +26,14 @@ interface HallSceneProps {
   standIns: number;
   /** Called once the WebGL context exists. */
   onReady: () => void;
+  /** Called with the spot on the floor that was clicked or tapped. */
+  onFloorClick?: ((point: Point) => void) | undefined;
+  /** Things drawn inside the scene, such as the people in the hall. */
+  children?: ReactNode;
 }
 
 /** The 3D canvas: the placeholder hall, lights, a camera the visitor can orbit, and optional stand-ins. */
-export function HallScene({ layout, standIns, onReady }: HallSceneProps) {
+export function HallScene({ layout, standIns, onReady, onFloorClick, children }: HallSceneProps) {
   const points = useMemo(
     () => (standIns > 0 ? scatterPoints(standIns, layout.floor, STAND_IN_SEED) : []),
     [layout.floor, standIns],
@@ -47,8 +52,9 @@ export function HallScene({ layout, standIns, onReady }: HallSceneProps) {
     >
       <ambientLight intensity={LIGHTS.ambient} />
       <directionalLight intensity={LIGHTS.sun} position={LIGHTS.sunPosition} />
-      <BlockoutHall layout={layout} />
+      <BlockoutHall layout={layout} onFloorClick={onFloorClick} />
       <StandInAvatars points={points} />
+      {children}
       <OrbitControls
         makeDefault
         enablePan={false}

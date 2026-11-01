@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasSpace } from './index';
+import { hasSpace } from './capacity';
 
 describe('hasSpace', () => {
   it('admits while below capacity', () => {

@@ -175,11 +175,14 @@ All tunable values are in one config module, with environment overrides, and no 
 | `hall.suggestSpread` | 3 | The suggested hall is picked at random among this many halls with space (1 = strict fill-first) |
 | `hall.idleKickSec` | 900 | A silent connection is closed after this long |
 | `hall.reconnectGraceSec` | 60 | How long a dropped player's place is kept for a reconnect |
+| `hall.joinTimeoutSec` | 10 | A connection that has not sent `join` is closed after this long |
+| `hall.sweepSec` | 30 | How often the hall checks for idle connections and expired reconnect places while anyone is connected |
 | `net.positionSendHz` | 8 | Client position updates per second |
 | `net.snapshotHz` | 8 | Server snapshots per second |
 | `net.maxMessageBytes` | 1024 | Largest accepted client message |
 | `net.maxMessagesPerSecond` | 20 | Per-connection rate limit |
 | `net.pingSec` | 30 | How often a visible page sends `ping` |
+| `net.maxInvalidMessages` | 5 | Invalid, refused or too-frequent messages tolerated (within a minute) before the connection is closed |
 | `ritual.cooldownMs` | 1500 | Minimum time between ritual requests |
 | `lamp.durationSec` | 300 | How long a lit lamp stays |
 | `lamp.maxPerPlayer` | 1 | Lamps one player may keep lit |
@@ -226,6 +229,14 @@ Position updates are collected and sent as one snapshot per tick, not one messag
 - **Directory unavailable:** the client falls back to trying halls 1, 2, 3 in order, up to `hall.joinRetries`.
 - The directory stores only a small table of numbers and needs no persistent storage.
 
+### 5.6 Connections and admission
+- A connection is open as soon as the WebSocket connects, but nobody is admitted until a valid `join` message is processed. Until then the connection is `pending`: it receives nothing about the hall, and it is closed after `hall.joinTimeoutSec`.
+- Admission, the capacity check and storing the person in the connection's saved state are one synchronous step (FR-6). Reading a reconnect token from storage happens before that step.
+- A person who drops is removed from the hall at once, so others see them leave. Their place is kept in storage under their resume token for `hall.reconnectGraceSec`; a reconnect with the token puts them back as the same person (new token issued each time, each token usable once). A hall that is full on return refuses them like anyone else.
+- If a person reconnects before the hall has noticed their old connection closing, the old connection is closed with code 4005 and the person is taken over.
+- Movement is sent in snapshots. A snapshot timer starts only when someone has moved, so a quiet hall can hibernate. Saved positions of moved people are written to their connections at each snapshot, so a person who stands still keeps their place after hibernation.
+- One alarm per hall runs every `hall.sweepSec` while anyone is connected or waiting to reconnect, to close idle and join-timed-out connections and delete expired reconnect places. Logs carry `temple_id`, `hall_id` and `correlation_id`; the Worker creates the correlation id and passes it in the `x-correlation-id` header.
+
 ---
 
 ## 6. Protocol
@@ -248,7 +259,7 @@ JSON messages over one WebSocket. Every message has a `type`. Types and validati
 
 | Type | Payload |
 |---|---|
-| `welcome` | `{ playerId, resumeToken, nickname, avatarId, players[], population, seats, lamps, specialDay?, chanting?, serverTimeMs }` |
+| `welcome` | `{ playerId, resumeToken, hall, nickname, avatarId, players[], population, serverTimeMs, positionSendHz, pingSec }`, later also `seats, lamps, specialDay?, chanting?` |
 | `player_joined` / `player_left` | `{ player }` / `{ playerId }` |
 | `snapshot` | `{ tick, moves: [{ playerId, x, z, facing }] }` |
 | `ritual_started` | `{ playerId, ritualId, slot? }` |
@@ -263,7 +274,18 @@ JSON messages over one WebSocket. Every message has a `type`. Types and validati
 - Parse and validate every incoming message against its schema before using it. Unknown types, extra fields that change meaning, wrong types and oversize messages are rejected with `invalid_message`.
 - All enum-like fields (`ritualId`, word IDs, `lang`) are checked against the manifest's allowed values before any write.
 - Numbers are range-checked (position inside the walkable area; no NaN or infinity).
-- On repeated invalid messages the server closes the connection.
+- Invalid, refused or too-frequent messages each count as a strike. After `net.maxInvalidMessages` strikes within a minute the server closes the connection.
+
+Close codes the server uses (4000–4999 is the range reserved for applications):
+
+| Code | Meaning | Browser reaction |
+|---|---|---|
+| 4001 | Hall is full | Show the full message; do not reconnect by itself |
+| 4002 | Too many invalid messages | Show "disconnected"; do not reconnect by itself |
+| 4003 | Idle too long | Show "You were away"; forget the saved token |
+| 4004 | Never sent `join` in time | Show "disconnected" |
+| 4005 | Replaced by a newer connection of the same person | Show "opened in another tab"; forget the saved token |
+| anything else | Network drop | Reconnect with back-off (FR-40) |
 
 ---
 

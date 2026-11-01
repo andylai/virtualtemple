@@ -1,3 +1,4 @@
+import type { Point } from '@temple/shared';
 import { useMemo } from 'react';
 import { ShapeGeometry, Shape, Vector2 } from 'three';
 import { BLOCKOUT, type Box, type HallLayout } from './hallLayout';
@@ -13,6 +14,8 @@ const PALETTE = {
   lamp: '#e8b84a',
 } as const;
 
+/** A press that moves further than this many pixels is a drag, not a click. */
+const CLICK_DRAG_PX = 5;
 const CYLINDER_SEGMENTS = 20;
 const LAMP_SEGMENTS = 12;
 
@@ -26,7 +29,14 @@ function BoxMesh({ box, color }: { box: Box; color: string }) {
 }
 
 /** The box-shaped placeholder hall, drawn from the layout that the manifest describes. */
-export function BlockoutHall({ layout }: { layout: HallLayout }) {
+export function BlockoutHall({
+  layout,
+  onFloorClick,
+}: {
+  layout: HallLayout;
+  /** Called with the spot on the floor that was clicked or tapped. */
+  onFloorClick?: ((point: Point) => void) | undefined;
+}) {
   const floor = useMemo(() => {
     const shape = new Shape(layout.floor.map((point) => new Vector2(point.x, -point.z)));
     return new ShapeGeometry(shape);
@@ -35,7 +45,16 @@ export function BlockoutHall({ layout }: { layout: HallLayout }) {
 
   return (
     <group>
-      <mesh geometry={floor} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh
+        geometry={floor}
+        rotation={[-Math.PI / 2, 0, 0]}
+        onClick={(event) => {
+          // A drag that orbits the camera also ends in a click; only a real click should walk.
+          if (event.delta <= CLICK_DRAG_PX) {
+            onFloorClick?.({ x: event.point.x, z: event.point.z });
+          }
+        }}
+      >
         <meshStandardMaterial color={PALETTE.floor} />
       </mesh>
       {layout.walls.map((wall) => (

@@ -1,6 +1,7 @@
-import { directoryName, hallRoomName, parseHallNumber } from '@temple/shared';
+import { CORRELATION_HEADER, directoryName, hallRoomName, parseHallNumber } from '@temple/shared';
 import { routePartykitRequest } from 'partyserver';
 import { configFor } from './config';
+import { Telemetry } from './telemetry';
 
 export { HallDirectory } from './HallDirectory';
 export { TempleRoom } from './TempleRoom';
@@ -16,7 +17,9 @@ function allowedOrigins(env: Env): Set<string> {
 
 async function handleSocket(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get('Origin');
+  const telemetry = new Telemetry({ temple_id: env.TEMPLE_SLUG });
   if (origin === null || !allowedOrigins(env).has(origin)) {
+    telemetry.count('rejected_request', { reason: 'origin' });
     return new Response('Origin not allowed', { status: 403 });
   }
   if (request.headers.get('Upgrade') !== 'websocket') {
@@ -25,15 +28,18 @@ async function handleSocket(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const hall = parseHallNumber(url.searchParams.get('hall'), configFor(env).hall.count);
   if (hall === null) {
+    telemetry.count('rejected_request', { reason: 'hall' });
     return new Response('Invalid hall', { status: 400 });
   }
   // PartyServer takes the path segment as the room name without decoding it, so the name must be
   // URL-safe as written (the slug is restricted to lowercase letters, digits and hyphens).
   const roomName = hallRoomName(env.TEMPLE_SLUG, hall);
   const target = new URL(`/parties/${ROOM_ROUTE}/${roomName}`, url);
-  const response = await routePartykitRequest(new Request(target, request), env, {
-    locationHint: LOCATION_HINT,
-  });
+  const correlationId = crypto.randomUUID();
+  const forwarded = new Request(target, request);
+  forwarded.headers.set(CORRELATION_HEADER, correlationId);
+  telemetry.with({ hall_id: hall, correlation_id: correlationId }).event('ws_request');
+  const response = await routePartykitRequest(forwarded, env, { locationHint: LOCATION_HINT });
   return response ?? new Response('Not found', { status: 404 });
 }
 

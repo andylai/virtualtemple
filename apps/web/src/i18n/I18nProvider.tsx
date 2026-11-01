@@ -5,7 +5,12 @@ import { pickLanguage, translate, type MessageParams } from './translate';
 
 type Translator = (key: MessageKey, params?: MessageParams) => string;
 
-const I18nContext = createContext<{ language: LanguageCode; t: Translator } | null>(null);
+interface I18nValue {
+  language: LanguageCode;
+  t: Translator;
+}
+
+const I18nContext = createContext<I18nValue | null>(null);
 
 /** Supplies `t()` to the app and keeps the page's `lang` attribute in step. */
 export function I18nProvider({ children }: { children: ReactNode }) {
@@ -28,4 +33,13 @@ export function useT(): Translator {
     throw new Error('useT must be used inside I18nProvider');
   }
   return context.t;
+}
+
+/** Returns the language in use, for example to pick the right word from a manifest. */
+export function useLanguage(): LanguageCode {
+  const context = useContext(I18nContext);
+  if (context === null) {
+    throw new Error('useLanguage must be used inside I18nProvider');
+  }
+  return context.language;
 }

@@ -31,7 +31,7 @@ pnpm format:check   # Prettier
 
 After changing `apps/worker/wrangler.jsonc`, regenerate bindings types: `pnpm --filter @temple/worker types`.
 
-The web app alone (no Worker needed until M2): `pnpm --filter @temple/web dev`, then open `http://localhost:5173`. Add `?debug=1&stress=50` for the frame-rate overlay and 50 stand-in avatars. For a phone on the same Wi-Fi use `pnpm --filter @temple/web dev:lan` and open the Network URL it prints.
+`pnpm dev` runs the Worker and the web app together. Open `http://localhost:5173/?hall=1` in two tabs, press Enter in each, and walk with WASD, the arrow keys, or a click on the floor. The web app alone (the Worker is only needed after you press Enter): `pnpm --filter @temple/web dev`. Add `?debug=1&stress=50` for the frame-rate overlay and 50 stand-in avatars. For a phone on the same Wi-Fi use `pnpm --filter @temple/web dev:lan` and open the Network URL it prints.
 
 `pnpm build` also checks the JavaScript size against `apps/web/bundle-budget.json`.
 
@@ -57,6 +57,7 @@ docs/mvp/           intent, spec, plan, spikes
 - Files stay under 800 lines and functions under 60 lines (ESLint enforces both).
 - No `*Manager`, `*Helper` or `*Util` names.
 - Room rules go in `packages/room-logic`; the PartyServer class in `apps/worker` is only an adapter.
+- All logging goes through `apps/worker/src/telemetry.ts` (the one file allowed to use the console). Test files and build scripts are exempt from the function-length and console rules respectively; production code is not.
 - Durable Object names must be URL-safe as written: PartyServer does not decode the path segment (see spikes.md S1). Temple slugs are lowercase letters, digits and hyphens.
 - Any deviation from these rules or any new pattern is recorded below as an ADR.
 
@@ -75,3 +76,6 @@ docs/mvp/           intent, spec, plan, spikes
 - ADR-011 — Tests run in the Workers runtime with `@cloudflare/vitest-plugin` — Durable Object and WebSocket behaviour, including hibernation, is exercised for real instead of mocked (spikes.md S7).
 - ADR-012 — A gzip bundle budget is enforced on every web build — Mobile load time depends on JavaScript size; the budget is set from the measured size plus headroom (334 kB measured, 400 kB allowed at M1) and raised only on purpose.
 - ADR-013 — Hall geometry (walkable area, cushions, lamp slots) lives in the manifest and the blockout hall is drawn from it — Real art and other temples change data, not code (spec 7, intent 11).
+- ADR-014 — A person is admitted by a valid `join` message, not by the connection opening — The `join` carries the remembered nickname and reconnect token, and unadmitted connections receive nothing about the hall and are closed after a timeout.
+- ADR-015 — Movement snapshots run on demand with a timer that starts when someone moves — A pending timer would keep the Durable Object awake; starting it only on movement lets a quiet hall hibernate. Positions are saved into the connections at each snapshot so still people survive hibernation.
+- ADR-016 — A dropped person's place is kept in Durable Object storage for a grace period under a one-use token — The in-memory registry is lost on hibernation and the connection (with its saved state) is gone after a drop, so storage is the only place that survives both.

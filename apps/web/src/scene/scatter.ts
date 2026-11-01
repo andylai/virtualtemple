@@ -1,9 +1,7 @@
-import { isPointInPolygon, type Point } from '@temple/shared';
+import { randomPointInPolygon, type Point } from '@temple/shared';
 
 /** How close to the edge of the area a scattered point may be, in metres. */
 const EDGE_MARGIN = 0.5;
-/** Tries per point before giving up, so a tiny or odd-shaped area cannot loop forever. */
-const MAX_TRIES_PER_POINT = 100;
 
 /** A small, fast random number generator that repeats for the same seed (mulberry32). */
 function seededRandom(seed: number): () => number {
@@ -28,24 +26,13 @@ function seededRandom(seed: number): () => number {
  */
 export function scatterPoints(count: number, polygon: readonly Point[], seed: number): Point[] {
   const random = seededRandom(seed);
-  const xs = polygon.map((point) => point.x);
-  const zs = polygon.map((point) => point.z);
-  const [minX, maxX] = [Math.min(...xs) + EDGE_MARGIN, Math.max(...xs) - EDGE_MARGIN];
-  const [minZ, maxZ] = [Math.min(...zs) + EDGE_MARGIN, Math.max(...zs) - EDGE_MARGIN];
-  if (minX >= maxX || minZ >= maxZ) {
-    throw new Error('The area is too small to place the points');
-  }
   const points: Point[] = [];
   for (let i = 0; i < count; i += 1) {
-    let found: Point | null = null;
-    for (let tries = 0; tries < MAX_TRIES_PER_POINT && found === null; tries += 1) {
-      const candidate = { x: minX + random() * (maxX - minX), z: minZ + random() * (maxZ - minZ) };
-      found = isPointInPolygon(candidate, polygon) ? candidate : null;
-    }
-    if (found === null) {
+    const point = randomPointInPolygon(polygon, random, EDGE_MARGIN);
+    if (point === null) {
       throw new Error('The area is too small to place the points');
     }
-    points.push(found);
+    points.push(point);
   }
   return points;
 }

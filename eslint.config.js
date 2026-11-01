@@ -20,6 +20,16 @@ export default tseslint.config(
     },
   },
   {
+    // A describe block groups many tests, so test files are exempt from the function-length limit.
+    files: ['**/*.test.ts', '**/*.test.tsx'],
+    rules: { 'max-lines-per-function': 'off' },
+  },
+  {
+    // The logger is the one place that may write to the console (spec 8.5).
+    files: ['**/telemetry.ts'],
+    rules: { 'no-console': 'off' },
+  },
+  {
     // Build scripts run in Node and print their result to the terminal on purpose.
     files: ['**/scripts/**/*.mjs'],
     languageOptions: { globals: { console: 'readonly', process: 'readonly' } },

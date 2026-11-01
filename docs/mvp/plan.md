@@ -360,3 +360,27 @@ Next: M1 (skeleton, including the blockout hall and the phone performance spike)
 The throwaway M0 web page (`SpikePage`) was removed. The Worker spike code and its tests remain and are reused in M2. Until M2, the web app does not talk to the Worker, so two browser tabs no longer show each other.
 
 Next: M2 (hall core: people join one hall, see each other move, and leave).
+
+---
+
+## 15. M2 status (2026-11-01)
+
+| Task | Status |
+|---|---|
+| M2-1 Message protocol | Done: Zod schemas for every client and server message in `packages/shared/src/messages.ts`, with size, range and unknown-field checks. |
+| M2-2 Player registry, nicknames | Done: `PlayerRegistry` (admission with capacity check, readmit, restore, remove), nickname picker that accepts only word ids, spawn near the entrance. |
+| M2-3 Movement and rate limit | Done: walkable-area check, normalised facing, moved set drained into snapshots, token-bucket limiter. |
+| M2-4 Worker routing | Done: Origin and hall checks, correlation id passed to the hall. |
+| M2-5 Hall adapter | Done: `TempleRoom` with join/move/ping, restore after hibernation, on-demand snapshot timer, reconnect storage, takeover of stale connections. |
+| M2-6 Browser connection | Done: `HallConnection` with reconnect and back-off, resume token in `sessionStorage`, pings only while the page is visible, close-code handling. |
+| M2-7 Walking and players | Done: click-to-walk and keyboard walking with wall sliding, camera follows, other people smoothed between snapshots. |
+| M2-8 Population and idle | Done: HUD with hall, count and nickname; idle and join timeouts. |
+| M2-9 Logging | Done: structured logs with `temple_id`, `hall_id`, `correlation_id`; counters logged for rejected messages, refusals and closes. Destination still open (O-9). |
+
+Tests: 172 in total (shared 66, room-logic 26, web 56, worker 24). The worker tests run in the Workers runtime and cover joining, nickname handling, movement and batching, 60 simultaneous joins into a 50-person hall, bad and oversize messages, rate limits, reconnect (including one-use tokens, expiry and takeover), idle and join timeouts, hibernation, and the directory.
+
+Checked by hand in the desktop browser: joining, the HUD, seeing a scripted second visitor walk, walking by clicking the floor (the second visitor received the path), and reconnecting after a server restart (the same person came back). Not checked visually: the "hall is full", "away" and "reconnecting" screens (the browser pane was hidden and paused rendering); they are covered by the connection tests and the status mapping.
+
+Notes for later: the browser connection uses the default config values for the hall count; M3 replaces the `?hall=N` default with hall assignment. The SelfAvatar has no ritual animations yet (M4).
+
+Next: M3 (halls: directory, assignment, Change hall).
