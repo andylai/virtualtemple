@@ -121,16 +121,18 @@ Behaviour is described in intent.md section 3 ("Special-day banner"). Requiremen
 - FR-33: For a special day, the room schedules the extra chanting times in addition to the regular ones.
 
 ### 3.9 Meditation timer
-- FR-34: The visitor picks a duration from `meditation.options` (proposed 5, 10, 15 minutes), then sits on a cushion. The clock starts when they are on the cushion and is measured with timestamps, so a tab in the background still ends on time. A bell rings at the end and the visitor is stood up. A request that is refused (no cushion) or never turns into walking is dropped.
+- FR-34: The visitor picks a duration from `meditation.options` (proposed 5, 10, 15 minutes), then sits on a cushion. The clock starts when they are on the cushion and is measured with timestamps, so a tab in the background still ends on time. A bell rings at the end and the visitor is stood up. The bell is booked on the audio clock when the timer starts, which is not slowed down in a background tab; while the tab is hidden and background play is off, the audio keeps running only for the bell (the ambient and chanting layers are silent). The tab's title shows the time left. Browsers that stop all audio in the background (some phones) may ring it only when the visitor returns; there is no system notification. A request that is refused (no cushion) or never turns into walking is dropped.
 - FR-35: The timer runs in the browser only. Seating uses the ritual `sit` (not a button or a key): `ritual_start` with `sit` reserves the nearest free cushion exactly as `bow` does, and `ritual_stop` releases it. The hall holds a sitting for up to 20 minutes, more than the longest timer, and ends it when the person walks more than 1.2 m from the cushion or leaves. Others see the person sit and get a toast. (This replaces the separate `sit` and `stand` messages of the first draft.)
 
 ### 3.10 Settings and UI
 - FR-36: A settings panel has the three volume sliders, the background-play toggle, a language selector (shown only when more than one language has translations), and "reduce motion" (which follows the device's setting until the visitor chooses; when on, avatars do not lean, bob or pulse). It also has a button to forget everything the browser remembers.
 - FR-37: Credits for third-party assets are shown in an "About" panel, from the manifest's `credits` list (title, author, licence and an optional secure link). The panel also says what is stored in the browser. With no credits it says no third-party work is used yet.
-- FR-38: The layout works at phone width, with touch controls and on-screen ritual buttons.
+- FR-38: The layout works at phone width, with touch controls and on-screen ritual buttons. The buttons form one bottom area that wraps onto more rows as the screen narrows, and the camera keeps the hall clear of that area's measured height. Tapping the floor walks; a drag does not scroll or zoom the page. Buttons are at least 44 px high and the layout respects the device's safe areas.
+- FR-45: Accessibility. Panels are dialogs: focus moves into them, Tab stays inside, Escape or a tap outside closes them, and focus returns to the button that opened them. Space and Enter press a focused button instead of starting a ritual, and arrow keys on a slider do not walk the avatar. Messages about the visitor's own actions are announced; the people count is not (it changes too often). A text description of the hall and the controls (in the About panel) are available to screen readers.
+- FR-46: Error and empty states. A crash shows a message with a reload button instead of a blank screen. An offline device and an interrupted 3D picture each show a short message. A model or picture that cannot be loaded is replaced by the placeholder, and a missing sound by the generated one, so a bad asset never breaks the hall.
 
 ### 3.11 Languages
-- FR-39: All user-facing text comes from translation files. English is the first language; Malay and Chinese are added by supplying files, with no code changes. The languages for launch are open question O-1.
+- FR-39: All user-facing text comes from translation files. English is the first language; Malay and Chinese are added by supplying files, with no code changes. A language reaches visitors only when it has a catalog and the manifest lists it in `languages`, so a draft can sit in the repository unseen. The languages for launch are open question O-1.
 
 ---
 
@@ -312,8 +314,9 @@ One manifest ships with the app. The room, Worker and frontend read it through a
     "walkableArea": "...",
     "cushions": ["..."],
     "lampSlots": ["..."],
-    "slots": { "altarBackdrop": "...", "banner": "...", "plaque": "...", "statue": "..." }
+    "slots": { "hallModel": null, "altarBackdrop": "...", "banner": "...", "plaque": "...", "statue": "..." }
   },
+  "avatar": { "model": null },
   "audio": { "ambient": "...", "chanting": "...", "chantingDurationSec": 300, "sfx": { "bell": "...", "lamp": "..." } },
   "rituals": ["greet", "bow", "lamp", "sit"],
   "nicknames": { "adjectives": ["..."], "nouns": ["..."] },
@@ -325,7 +328,9 @@ One manifest ships with the app. The room, Worker and frontend read it through a
 - Coordinates are in metres on the hall floor: `x` runs left to right and the altar is at the smaller-`z` end. `facing` is in degrees, with 0 facing the altar. The walkable area is a polygon; every cushion must lie inside it. Slots set to `null` use the blockout placeholder.
 - Dates and values in the examples above are illustrative placeholders and have not been verified. Real special-day dates come from an official calendar and are checked by the religious advisor before launch.
 - The manifest is validated at build time against a schema; an invalid manifest fails the build.
-- Asset URLs are relative to an asset base URL from configuration, so assets can move from `public/` to R2 without code changes.
+- Asset URLs are relative to an asset base URL from configuration (`VITE_ASSET_BASE_URL`: a path on this site or an `https://` address; anything else is ignored), so assets can move from `public/` to R2 without code changes.
+- File types are checked by the schema: models (`hallModel`, `statue`, `avatar.model`) are `.glb`; pictures (`altarBackdrop`, `banner`, `plaque`) are `.webp`, `.png`, `.jpg` or `.ktx2`; sounds are `.opus`, `.ogg`, `.mp3` or `.m4a`.
+- Authoring conventions for models: metres, Y up, the front facing +Z (glTF's own rule; the app turns people to face the altar). The hall model uses the manifest's coordinates with no offset. A statue's origin is the middle of its base and it is placed on the altar; the statue slot is used only while `hallModel` is null. A person's origin is at their feet. Draco mesh compression and KTX2 textures are supported, and their decoders are served from the app's own address. Pictures hang on the back wall at positions set in `hallLayout.ts`, which the real art will tune.
 
 ---
 

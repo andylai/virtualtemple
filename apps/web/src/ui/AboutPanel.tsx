@@ -16,9 +16,10 @@ export function AboutPanel() {
         {t('about.button')}
       </button>
       {open && (
-        <Overlay>
-          <h2>{t('about.title')}</h2>
+        <Overlay title={t('about.title')} onClose={() => setOpen(false)}>
           <p>{t('about.privacy')}</p>
+          <h3>{t('about.controls')}</h3>
+          <p>{t('about.controlsBody')}</p>
           <h3>{t('about.credits')}</h3>
           {credits.length === 0 ? (
             <p>{t('about.noCredits')}</p>

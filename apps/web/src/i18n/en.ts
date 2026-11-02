@@ -78,6 +78,17 @@ export const en = {
   'hud.people.one': '1 person here',
   'hud.people.other': '{count} people here',
   'hud.you': 'You are {name}',
+  'status.offline': 'You are offline. The hall will return when your connection does.',
+  'error.crashed': 'Something went wrong',
+  'error.crashedBody': 'Please reload the page. Nothing of yours is lost.',
+  'error.reload': 'Reload',
+  'error.pictureLost':
+    'The 3D picture was interrupted. It should come back by itself; if not, please reload the page.',
+  'about.controls': 'Controls',
+  'about.controlsBody':
+    'Walk: tap or click the floor, or use W A S D or the arrow keys. Greet: 3. Bow: 1, E or Space. Light a lamp: L.',
+  'hall.description':
+    'A temple hall seen from above, with an altar, cushions and lamps. Use the buttons at the bottom of the page for greeting, bowing, lighting a lamp, meditating and settings.',
   'error.webgl':
     'This browser cannot show the 3D hall. Please try a recent version of Chrome, Safari or Firefox.',
 } as const satisfies Record<string, string>;

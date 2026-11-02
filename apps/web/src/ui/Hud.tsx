@@ -12,7 +12,7 @@ export function Hud({ state }: { state: HallState }) {
   }
   const name = nicknameText(flagshipManifest.nicknames, state.nickname, language);
   return (
-    <div className="hud" role="status">
+    <div className="hud">
       <strong>{t('hud.hall', { n: state.hall })}</strong>
       <span>
         {state.population === 1

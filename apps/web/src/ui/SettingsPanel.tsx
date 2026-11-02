@@ -1,9 +1,10 @@
 import { DEFAULT_CONFIG, type LanguageCode } from '@temple/shared';
+import { flagshipManifest } from '@temple/shared/flagship';
 import { useState, useSyncExternalStore } from 'react';
 import type { AudioEngine, EngineSnapshot, Layer } from '../audio/engine';
 import { useLanguage, useT } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/en';
-import { CATALOGS } from '../i18n/translate';
+import { availableLanguages } from '../i18n/translate';
 import { effectiveReduceMotion, preferencesStore } from '../prefs/preferences';
 import { useDeviceReducesMotion, usePreferences } from '../prefs/usePreferences';
 import { LANGUAGE_NAMES } from './languageNames';
@@ -54,7 +55,7 @@ function PreferenceControls() {
   const language = useLanguage();
   const preferences = usePreferences();
   const deviceReducesMotion = useDeviceReducesMotion();
-  const languages = Object.keys(CATALOGS) as LanguageCode[];
+  const languages = availableLanguages(flagshipManifest.languages);
   return (
     <>
       <label className="check">
@@ -113,8 +114,7 @@ export function SettingsPanel({ engine }: { engine: AudioEngine }) {
         {t('settings.button')}
       </button>
       {open && (
-        <Overlay>
-          <h2>{t('settings.title')}</h2>
+        <Overlay title={t('settings.title')} onClose={() => setOpen(false)}>
           <SoundControls engine={engine} sound={sound} />
           <PreferenceControls />
           <p>

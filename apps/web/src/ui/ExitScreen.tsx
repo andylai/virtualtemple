@@ -5,8 +5,7 @@ import { Overlay } from './Overlay';
 export function ExitScreen({ onStayAgain }: { onStayAgain: () => void }) {
   const t = useT();
   return (
-    <Overlay>
-      <h1>{t('exit.title')}</h1>
+    <Overlay title={t('exit.title')} level={1}>
       <p>{t('exit.body')}</p>
       <button type="button" onClick={onStayAgain}>
         {t('exit.stayAgain')}

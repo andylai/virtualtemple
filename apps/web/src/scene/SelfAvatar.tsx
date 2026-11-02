@@ -5,6 +5,7 @@ import type { Group } from 'three';
 import type { RitualClock } from '../net/ritualClock';
 import { AnimatedAvatar } from './AnimatedAvatar';
 import { AVATAR_BASE_Y } from './Avatar';
+import { keyIsForControl } from '../ui/keyTargets';
 import { FORWARD_ON_FLOOR } from './framing';
 import {
   NO_KEYS,
@@ -59,14 +60,14 @@ interface FrameContext extends Omit<
   deltaSeconds: number;
 }
 
-/** Keeps `held` up to date with the movement keys, ignoring typing in form fields. */
+/** Keeps `held` up to date with the movement keys, ignoring keys meant for a dialog or form field. */
 function useHeldKeys(): MutableRefObject<HeldKeys> {
   const held = useRef<HeldKeys>({ ...NO_KEYS });
   useEffect(() => {
     const set = (event: KeyboardEvent, down: boolean) => {
       const direction = keyDirection(event.code);
-      const target = event.target as HTMLElement | null;
-      if (direction === null || target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') {
+      // A key let go is always noticed, so a key held while a panel opened cannot stay stuck.
+      if (direction === null || (down && keyIsForControl(event.target, event.code))) {
         return;
       }
       held.current[direction] = down;

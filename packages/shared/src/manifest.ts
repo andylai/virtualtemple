@@ -29,6 +29,18 @@ const assetPath = z
   .refine((value) => !value.startsWith('/') && !value.split('/').includes('..'), {
     message: 'must be a relative path without ".."',
   });
+/** A path that must end with one of the given file types, so a wrong kind of file is caught at build time. */
+function pathOfType(extensions: readonly string[]) {
+  return assetPath.refine((value) => extensions.some((end) => value.toLowerCase().endsWith(end)), {
+    message: `must end with ${extensions.join(', ')}`,
+  });
+}
+/** 3D models are binary glTF, which may be Draco-compressed and use KTX2 textures. */
+const modelPath = pathOfType(['.glb']);
+/** Pictures drawn on the hall's walls. `.ktx2` is the compressed form for large ones. */
+const imagePath = pathOfType(['.webp', '.png', '.jpg', '.jpeg', '.ktx2']);
+/** Opus is the planned format; the others are accepted for browsers or recordings that need them. */
+const audioPath = pathOfType(['.opus', '.ogg', '.mp3', '.m4a']);
 const coordinate = z.number().finite();
 const point = z.object({ x: coordinate, z: coordinate });
 const itemId = z.string().regex(/^[a-z0-9-]{1,40}$/);
@@ -54,10 +66,12 @@ const hallSchema = z.object({
   cushions: z.array(cushion),
   lampSlots: z.array(lampSlot),
   slots: z.object({
-    altarBackdrop: assetPath.nullable(),
-    banner: assetPath.nullable(),
-    plaque: assetPath.nullable(),
-    statue: assetPath.nullable(),
+    /** The whole hall as one model. It replaces the blockout walls, altar, statue and cushions. */
+    hallModel: modelPath.nullable(),
+    altarBackdrop: imagePath.nullable(),
+    banner: imagePath.nullable(),
+    plaque: imagePath.nullable(),
+    statue: modelPath.nullable(),
   }),
 });
 
@@ -79,12 +93,14 @@ export const manifestSchema = z
     specialDays: z.array(specialDay),
     hall: hallSchema,
     audio: z.object({
-      ambient: assetPath,
-      chanting: assetPath,
+      ambient: audioPath,
+      chanting: audioPath,
       /** How long a communal chanting session lasts: the length of the chanting recording. */
       chantingDurationSec: z.number().int().positive(),
-      sfx: z.object({ bell: assetPath, lamp: assetPath }),
+      sfx: z.object({ bell: audioPath, lamp: audioPath }),
     }),
+    /** The people. With no model they are coloured capsules. */
+    avatar: z.object({ model: modelPath.nullable() }),
     rituals: z.array(z.enum(RITUAL_IDS)).min(1),
     nicknames: z.object({
       adjectives: z.array(word).min(1),

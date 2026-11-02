@@ -1,6 +1,7 @@
 import { DEFAULT_CONFIG, ritualForKey, type RitualId } from '@temple/shared';
 import { flagshipManifest } from '@temple/shared/flagship';
 import { useEffect, useRef } from 'react';
+import { keyIsForControl } from './keyTargets';
 
 /**
  * Starts a ritual when its key is pressed (3, 1/E/Space, 2, L). A key held down does not repeat,
@@ -16,10 +17,8 @@ export function useRitualKeys(enabled: boolean, onStart: (ritualId: RitualId) =>
       return undefined;
     }
     const press = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
       const ritualId = ritualForKey(event.code, flagshipManifest.rituals);
-      if (event.repeat || typing || ritualId === null) {
+      if (event.repeat || ritualId === null || keyIsForControl(event.target, event.code)) {
         return;
       }
       event.preventDefault();

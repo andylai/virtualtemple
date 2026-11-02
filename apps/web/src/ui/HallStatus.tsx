@@ -21,10 +21,22 @@ function isOutOfHall(status: HallState['status']): status is OutOfHallStatus {
 export function HallStatus({ state, onRetry }: { state: HallState; onRetry: () => void }) {
   const t = useT();
   if (state.status === 'connecting') {
-    return <div className="banner">{t('status.connecting')}</div>;
+    return (
+      <div className="top">
+        <div className="banner" role="status">
+          {t('status.connecting')}
+        </div>
+      </div>
+    );
   }
   if (state.status === 'reconnecting') {
-    return <div className="banner">{t('status.reconnecting')}</div>;
+    return (
+      <div className="top">
+        <div className="banner" role="status">
+          {t('status.reconnecting')}
+        </div>
+      </div>
+    );
   }
   if (!isOutOfHall(state.status)) {
     return null;
@@ -33,7 +45,7 @@ export function HallStatus({ state, onRetry }: { state: HallState; onRetry: () =
   return (
     <Overlay>
       <p>{t(message)}</p>
-      <button type="button" onClick={onRetry}>
+      <button type="button" autoFocus onClick={onRetry}>
         {t(button)}
       </button>
     </Overlay>

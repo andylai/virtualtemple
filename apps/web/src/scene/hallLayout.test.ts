@@ -30,6 +30,18 @@ describe('buildHallLayout', () => {
     expect(layout.lampSlots).toHaveLength(flagshipManifest.hall.lampSlots.length);
   });
 
+  it('hangs the pictures on the inside of the back wall, inside the hall and clear of the wall', () => {
+    const wallInside = layout.altar.z - layout.altar.depth / 2;
+    for (const plane of Object.values(layout.pictures)) {
+      expect(plane.z).toBeGreaterThan(wallInside);
+      expect(plane.z - wallInside).toBeLessThan(0.1);
+      expect(plane.y - plane.height / 2).toBeGreaterThanOrEqual(0);
+      expect(plane.y + plane.height / 2).toBeLessThanOrEqual(BLOCKOUT.wallHeight);
+      expect(plane.x - plane.width / 2).toBeGreaterThan(layout.bounds.minX);
+      expect(plane.x + plane.width / 2).toBeLessThan(layout.bounds.maxX);
+    }
+  });
+
   it('builds a shelf on each side of the altar, and every lamp place stands on one', () => {
     expect(layout.lampRacks).toHaveLength(2);
     const [left, right] = [...layout.lampRacks].sort((a, b) => a.x - b.x);

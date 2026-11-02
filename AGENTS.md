@@ -33,7 +33,7 @@ After changing `apps/worker/wrangler.jsonc`, regenerate bindings types: `pnpm --
 
 `pnpm dev` runs the Worker and the web app together. Open `http://localhost:5173/?hall=1` in two tabs, press Enter in each, and walk with WASD, the arrow keys, or a click on the floor. The web app alone (the Worker is only needed after you press Enter): `pnpm --filter @temple/web dev`. Add `?debug=1&stress=50` for the frame-rate overlay and 50 stand-in avatars. For a phone on the same Wi-Fi use `pnpm --filter @temple/web dev:lan` and open the Network URL it prints.
 
-`pnpm build` also checks the JavaScript size against `apps/web/bundle-budget.json`.
+`pnpm build` also checks the JavaScript the page downloads first against `apps/web/bundle-budget.json` (code fetched later, such as the model loaders, is listed but not counted).
 
 ## Layout
 
@@ -93,3 +93,8 @@ docs/mvp/           intent, spec, plan, spikes
 - ADR-028 — The browser remembers only what the visitor chose, checked field by field when read back, and works without storage — A single `localStorage` key holds the nickname's word ids, volumes and settings. Nothing is kept on the server, so there is no personal data to protect, and a "forget" button clears it.
 - ADR-029 — Meditation seating is a ritual (`sit`) that reuses the cushion rules of the bow, and the timer lives in the browser — The cushion handling (nearest free, one owner, freed on leaving or walking away, hibernation) is already tested; the hall only needs a longer hold time, and a timer based on timestamps is correct even when the tab is asleep.
 - ADR-030 — Sound goes quiet in the background unless the visitor allows it, and communal chanting is restarted at the right place afterwards — The audio clock stops while suspended, so a source that simply resumed would be behind everyone else.
+- ADR-031 — One bottom dock and one top stack hold all the buttons and messages, and the camera reserves the dock's measured height — Separate fixed elements overlapped on phones; the dock reports its real height (it changes with language and screen width) and `frameHall` keeps the hall clear of it, with an estimate until it is measured.
+- ADR-032 — Panels share one `Overlay` that behaves as a dialog, and keys meant for a control are not also acted on by the hall — Keyboard and screen-reader use needs focus to move into a panel and back, and Space on a focused button or arrows on a slider must not start a bow or walk the avatar (`keyTargets.ts`).
+- ADR-033 — The meditation bell is booked on the audio clock; a hidden tab keeps the clock running but silences every layer except sound effects — Ordinary timers are slowed in background tabs, and the bell must still ring on time without background chanting playing against the visitor's choice.
+- ADR-034 — Models and pictures come from manifest slots, load lazily, and fall back to the placeholder — Real art then replaces the placeholder with no code change (acceptance criterion 9); the loaders and decoders (Draco, KTX2) are separate downloads fetched only when a manifest names a model, so the placeholder temple does not pay for them, and the bundle budget counts only the first download.
+- ADR-035 — A language is offered only when it has a catalog and the manifest lists it — Draft translations can be kept in the repository without reaching visitors before review.

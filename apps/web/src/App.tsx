@@ -20,9 +20,11 @@ import { MeditationBar } from './ui/Meditation';
 import { EnterOverlay } from './ui/EnterOverlay';
 import { FpsCounter } from './ui/FpsCounter';
 import { HallStatus } from './ui/HallStatus';
+import { OfflineBanner, PictureLostBanner } from './ui/ConnectionBanners';
 import { Hud } from './ui/Hud';
 import { Overlay } from './ui/Overlay';
 import { SpecialDayBanner } from './ui/SpecialDayBanner';
+import { Notices } from './ui/Notices';
 import { Toasts } from './ui/Toasts';
 import { Toolbar } from './ui/Toolbar';
 import { useRitualKeys } from './ui/useRitualKeys';
@@ -34,32 +36,92 @@ function HallOverlays({
   actions,
   engine,
   meditation,
+  pictureLost,
   onLeave,
 }: {
   state: HallState;
   actions: HallActions;
   engine: AudioEngine;
   meditation: Meditation;
+  pictureLost: boolean;
   onLeave: () => void;
 }) {
   return (
     <>
-      <Hud state={state} />
-      <SpecialDayBanner state={state} />
-      <ChantingBanner state={state} />
-      <MeditationBar meditation={meditation} />
-      <Toasts toasts={state.toasts} onDismiss={actions.dismissToast} />
+      <div className="top">
+        <PictureLostBanner lost={pictureLost} />
+        <OfflineBanner />
+        <Hud state={state} />
+        <SpecialDayBanner state={state} />
+        <ChantingBanner state={state} />
+        <Notices
+          state={state}
+          onNoticeShown={actions.clearNotice}
+          onRitualNoticeShown={actions.clearRitualNotice}
+        />
+        <MeditationBar meditation={meditation} />
+        <Toasts toasts={state.toasts} onDismiss={actions.dismissToast} />
+      </div>
       <Toolbar
         state={state}
         engine={engine}
         meditation={meditation}
         onLeave={onLeave}
         onPickHall={actions.switchHall}
-        onNoticeShown={actions.clearNotice}
         onStartRitual={actions.startRitual}
         onStopRitual={actions.stopRitual}
-        onRitualNoticeShown={actions.clearRitualNotice}
       />
+    </>
+  );
+}
+
+/** What is drawn over the hall: the first card, the status messages, the exit screen, or the buttons. */
+function HallScreens({
+  state,
+  actions,
+  engine,
+  meditation,
+  pictureLost,
+  entered,
+  sceneReady,
+  left,
+  onEnter,
+  onLeave,
+  onStayAgain,
+}: {
+  state: HallState;
+  actions: HallActions;
+  engine: AudioEngine;
+  meditation: Meditation;
+  pictureLost: boolean;
+  entered: boolean;
+  sceneReady: boolean;
+  left: boolean;
+  onEnter: () => void;
+  onLeave: () => void;
+  onStayAgain: () => void;
+}) {
+  const t = useT();
+  return (
+    <>
+      <div className="sr-only">{t('hall.description')}</div>
+      {left ? (
+        <ExitScreen onStayAgain={onStayAgain} />
+      ) : entered ? (
+        <HallStatus state={state} onRetry={actions.join} />
+      ) : (
+        <EnterOverlay sceneReady={sceneReady} onEnter={onEnter} />
+      )}
+      {!left && (
+        <HallOverlays
+          state={state}
+          actions={actions}
+          engine={engine}
+          meditation={meditation}
+          pictureLost={pictureLost}
+          onLeave={onLeave}
+        />
+      )}
     </>
   );
 }
@@ -76,6 +138,7 @@ function HallView({ client }: { client: HallClient }) {
   const { left, leave, stayAgain } = useLeaving(actions, engine, meditation);
   const walkTarget = useRef<Point | null>(null);
   const [sceneReady, setSceneReady] = useState(false);
+  const [pictureLost, setPictureLost] = useState(false);
   const [entered, setEntered] = useState(false);
   const litLamps = useMemo(() => new Set(state.lamps.keys()), [state.lamps]);
 
@@ -100,27 +163,25 @@ function HallView({ client }: { client: HallClient }) {
         layout={layout}
         standIns={flags.stress}
         onReady={() => setSceneReady(true)}
+        onPictureLost={setPictureLost}
         onFloorClick={clickFloor}
         litLamps={litLamps}
       >
         <HallPeople client={client} state={state} walkTarget={walkTarget} />
       </HallScene>
-      {left ? (
-        <ExitScreen onStayAgain={stayAgain} />
-      ) : entered ? (
-        <HallStatus state={state} onRetry={actions.join} />
-      ) : (
-        <EnterOverlay sceneReady={sceneReady} onEnter={enter} />
-      )}
-      {!left && (
-        <HallOverlays
-          state={state}
-          actions={actions}
-          engine={engine}
-          meditation={meditation}
-          onLeave={leave}
-        />
-      )}
+      <HallScreens
+        state={state}
+        actions={actions}
+        engine={engine}
+        meditation={meditation}
+        pictureLost={pictureLost}
+        entered={entered}
+        sceneReady={sceneReady}
+        left={left}
+        onEnter={enter}
+        onLeave={leave}
+        onStayAgain={stayAgain}
+      />
       {flags.debug && <FpsCounter detail={`${flags.stress} stand-in avatars`} />}
     </>
   );

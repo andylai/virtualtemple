@@ -6,6 +6,8 @@ export type Layer = 'ambient' | 'chanting' | 'sfx';
 export type SoundName = 'ambient' | 'chanting' | 'bell' | 'lamp';
 export type SfxName = 'bell' | 'lamp';
 
+const MS_PER_SECOND = 1000;
+
 type Volumes = Record<Layer, number>;
 type ChantKind = 'personal' | 'communal';
 
@@ -40,6 +42,8 @@ export class AudioEngine {
   private pageVisible = true;
   private backgroundPlay = false;
   private suspended = false;
+  /** Bells scheduled for later. While one is waiting the audio clock must keep running. */
+  private pendingBells = 0;
   private readonly listeners = new Set<() => void>();
   private snapshot: EngineSnapshot;
 
@@ -130,11 +134,52 @@ export class AudioEngine {
   /** Sets one layer's volume, kept between 0 and 1. */
   setVolume(layer: Layer, value: number): void {
     this.volumes = { ...this.volumes, [layer]: Math.min(1, Math.max(0, value)) };
-    const gain = this.gains[layer];
-    if (gain !== undefined) {
-      gain.gain.value = this.volumes[layer];
-    }
+    this.applyGains();
     this.notify();
+  }
+
+  /**
+   * Rings the bell at a set time by the audio clock, which keeps time even in a background tab where
+   * ordinary timers are slowed down. While the tab is hidden and background play is off, the audio
+   * clock stays running but the ambient and chanting layers are silent, so only the bell is heard.
+   *
+   * @param atEpochMs - When to ring, in epoch milliseconds.
+   * @returns A function that cancels the bell, or null when sound is not unlocked (ring it by hand).
+   */
+  scheduleBell(atEpochMs: number): (() => void) | null {
+    const context = this.context;
+    const gain = this.gains.sfx;
+    if (context === null || gain === undefined) {
+      return null;
+    }
+    let cancelled = false;
+    let source: AudioBufferSourceNode | null = null;
+    let released = false;
+    const release = () => {
+      if (!released) {
+        released = true;
+        this.pendingBells -= 1;
+        this.applySuspension();
+      }
+    };
+    this.pendingBells += 1;
+    this.applySuspension();
+    void this.loadBuffer('bell').then((buffer) => {
+      if (cancelled) {
+        return;
+      }
+      const delaySec = Math.max(0, (atEpochMs - this.deps.epochNow()) / MS_PER_SECOND);
+      source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(gain);
+      source.onended = release;
+      source.start(context.currentTime + delaySec);
+    });
+    return () => {
+      cancelled = true;
+      source?.stop();
+      release();
+    };
   }
 
   /** Plays a short sound once. */
@@ -231,13 +276,26 @@ export class AudioEngine {
     }
   }
 
+  /** Sets each layer's loudness. A tab that is hidden but waiting for a bell plays only the sound effects. */
+  private applyGains(): void {
+    const silenced = !this.pageVisible && !this.backgroundPlay;
+    for (const layer of ['ambient', 'chanting', 'sfx'] as const) {
+      const gain = this.gains[layer];
+      if (gain !== undefined) {
+        gain.gain.value = silenced && layer !== 'sfx' ? 0 : this.volumes[layer];
+      }
+    }
+  }
+
   /** Stops or restarts the browser's audio clock as the visitor's choices and the tab's state require. */
   private applySuspension(): void {
     const context = this.context;
     if (context === null) {
       return;
     }
-    const shouldSuspend = this.paused || (!this.pageVisible && !this.backgroundPlay);
+    const hiddenAndQuiet = !this.pageVisible && !this.backgroundPlay;
+    const shouldSuspend = this.paused || (hiddenAndQuiet && this.pendingBells === 0);
+    this.applyGains();
     if (shouldSuspend && !this.suspended) {
       this.suspended = true;
       void context.suspend();

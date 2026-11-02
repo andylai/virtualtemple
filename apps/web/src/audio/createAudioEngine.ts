@@ -1,4 +1,5 @@
 import { flagshipManifest } from '@temple/shared/flagship';
+import { ASSET_BASE } from '../assets/assetUrl';
 import { preferencesStore } from '../prefs/preferences';
 import { AudioEngine } from './engine';
 import { loadSoundBuffer, soundUrl } from './soundAssets';
@@ -15,7 +16,7 @@ export function createAudioEngine(): AudioEngine {
   return new AudioEngine({
     createContext: () => new Context(),
     loadBuffer: (context, name) =>
-      loadSoundBuffer(context, name, soundUrl(flagshipManifest, name, import.meta.env.BASE_URL)),
+      loadSoundBuffer(context, name, soundUrl(flagshipManifest, name, ASSET_BASE)),
     volumes: { ...preferencesStore().getState().volumes },
     epochNow: () => Date.now(),
   });

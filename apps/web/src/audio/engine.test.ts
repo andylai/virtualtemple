@@ -14,6 +14,7 @@ class FakeGain extends FakeNode {
 class FakeSource extends FakeNode {
   buffer: unknown = null;
   loop = false;
+  onended: (() => void) | null = null;
   started: { when: number; offset: number | undefined } | null = null;
   stopped = false;
   start(when: number, offset?: number) {
@@ -25,6 +26,7 @@ class FakeSource extends FakeNode {
 }
 class FakeContext {
   destination = new FakeNode();
+  currentTime = 0;
   resumed = false;
   suspended = false;
   suspend() {
@@ -314,6 +316,44 @@ describe('pausing and the background', () => {
     engine.setPageVisible(true);
     await settle();
     expect(context.suspended).toBe(false);
+  });
+
+  it('keeps the clock running for a waiting bell and silences everything else while hidden', async () => {
+    const { engine, context, sfxGain, ambientGain } = setup();
+    engine.unlock();
+    await settle();
+    const bellAt = Date.now() + 90_000;
+    const cancel = engine.scheduleBell(bellAt);
+    expect(cancel).not.toBeNull();
+    await settle();
+    engine.setPageVisible(false);
+    expect(context.suspended).toBe(false);
+    expect(context.gains[ambientGain]?.gain.value).toBe(0);
+    expect(context.gains[sfxGain]?.gain.value).toBe(0.35);
+    const bell = context.sources.at(-1);
+    expect(bell?.started?.when).toBeCloseTo(90, 0);
+    bell?.onended?.();
+    expect(context.suspended).toBe(true);
+    engine.setPageVisible(true);
+    await settle();
+    expect(context.gains[ambientGain]?.gain.value).toBe(0.35);
+  });
+
+  it('lets the clock stop again when a waiting bell is cancelled, and cancels the sound', async () => {
+    const { engine, context } = setup();
+    engine.unlock();
+    await settle();
+    const cancel = engine.scheduleBell(Date.now() + 60_000);
+    await settle();
+    engine.setPageVisible(false);
+    cancel?.();
+    expect(context.sources.at(-1)?.stopped).toBe(true);
+    expect(context.suspended).toBe(true);
+  });
+
+  it('cannot schedule a bell before sound is unlocked', () => {
+    const { engine } = setup();
+    expect(engine.scheduleBell(Date.now() + 1000)).toBeNull();
   });
 
   it('puts the communal chanting back at the right place after a pause', async () => {

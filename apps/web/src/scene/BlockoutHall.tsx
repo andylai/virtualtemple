@@ -2,6 +2,7 @@ import type { Point } from '@temple/shared';
 import { useMemo } from 'react';
 import { ShapeGeometry, Shape, Vector2 } from 'three';
 import { BLOCKOUT, type Box, type HallLayout } from './hallLayout';
+import { ModelSlot } from './slots/LazySlots';
 
 /** Colours of the placeholder hall. Real art replaces all of them. */
 const PALETTE = {
@@ -31,43 +32,84 @@ function BoxMesh({ box, color }: { box: Box; color: string }) {
   );
 }
 
-/** The box-shaped placeholder hall, drawn from the layout that the manifest describes. */
-export function BlockoutHall({
-  layout,
-  onFloorClick,
-  litLamps,
-}: {
-  layout: HallLayout;
-  /** The lamp places that have a lit lamp. */
-  litLamps?: ReadonlySet<string> | undefined;
-  /** Called with the spot on the floor that was clicked or tapped. */
-  onFloorClick?: ((point: Point) => void) | undefined;
-}) {
-  const floor = useMemo(() => {
+/** The coloured floor of the placeholder hall. */
+function ColourFloor({ layout }: { layout: HallLayout }) {
+  const geometry = useFloorGeometry(layout);
+  return (
+    <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]}>
+      <meshStandardMaterial color={PALETTE.floor} />
+    </mesh>
+  );
+}
+
+function useFloorGeometry(layout: HallLayout): ShapeGeometry {
+  return useMemo(() => {
     const shape = new Shape(layout.floor.map((point) => new Vector2(point.x, -point.z)));
     return new ShapeGeometry(shape);
   }, [layout.floor]);
-  const { cushionRadius, cushionHeight, lampSize, rackHeight } = BLOCKOUT;
+}
 
+/**
+ * The floor that takes clicks and taps. It is always there, and invisible: the walkable area is
+ * what the manifest says, whatever art is drawn over it.
+ */
+export function FloorClickArea({
+  layout,
+  onFloorClick,
+}: {
+  layout: HallLayout;
+  /** Called with the spot on the floor that was clicked or tapped. */
+  onFloorClick?: ((point: Point) => void) | undefined;
+}) {
+  const geometry = useFloorGeometry(layout);
+  return (
+    <mesh
+      geometry={geometry}
+      rotation={[-Math.PI / 2, 0, 0]}
+      onClick={(event) => {
+        // A drag that ends in a click is not a walk; only a real click or tap should walk.
+        if (event.delta <= CLICK_DRAG_PX) {
+          onFloorClick?.({ x: event.point.x, z: event.point.z });
+        }
+      }}
+    >
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
+  );
+}
+
+/**
+ * The box-shaped placeholder hall: floor, walls, altar, lamp shelves and cushions, drawn from the
+ * layout the manifest describes.
+ *
+ * @param statueUrl - A model for the statue on the altar. The box is drawn instead when it is
+ *   null, while the model downloads, and if it cannot be loaded.
+ */
+export function BlockoutFurniture({
+  layout,
+  statueUrl,
+}: {
+  layout: HallLayout;
+  statueUrl: string | null;
+}) {
+  const { cushionRadius, cushionHeight } = BLOCKOUT;
+  const statueBox = <BoxMesh box={layout.statue} color={PALETTE.statue} />;
   return (
     <group>
-      <mesh
-        geometry={floor}
-        rotation={[-Math.PI / 2, 0, 0]}
-        onClick={(event) => {
-          // A drag that orbits the camera also ends in a click; only a real click should walk.
-          if (event.delta <= CLICK_DRAG_PX) {
-            onFloorClick?.({ x: event.point.x, z: event.point.z });
-          }
-        }}
-      >
-        <meshStandardMaterial color={PALETTE.floor} />
-      </mesh>
+      <ColourFloor layout={layout} />
       {layout.walls.map((wall) => (
         <BoxMesh key={`${wall.x}:${wall.z}`} box={wall} color={PALETTE.wall} />
       ))}
       <BoxMesh box={layout.altar} color={PALETTE.altar} />
-      <BoxMesh box={layout.statue} color={PALETTE.statue} />
+      {statueUrl === null ? (
+        statueBox
+      ) : (
+        <ModelSlot
+          url={statueUrl}
+          position={[layout.statue.x, layout.altar.height, layout.statue.z]}
+          fallback={statueBox}
+        />
+      )}
       {layout.lampRacks.map((rack) => (
         <BoxMesh key={`${rack.x}:${rack.z}`} box={rack} color={PALETTE.rack} />
       ))}
@@ -79,6 +121,22 @@ export function BlockoutHall({
           <meshStandardMaterial color={PALETTE.cushion} />
         </mesh>
       ))}
+    </group>
+  );
+}
+
+/** The lamps, which are drawn from the manifest's lamp places whatever the hall looks like. A lit lamp glows. */
+export function Lamps({
+  layout,
+  litLamps,
+}: {
+  layout: HallLayout;
+  /** The lamp places that have a lit lamp. */
+  litLamps?: ReadonlySet<string> | undefined;
+}) {
+  const { lampSize, rackHeight } = BLOCKOUT;
+  return (
+    <>
       {layout.lampSlots.map((slot) => (
         <mesh key={slot.id} position={[slot.x, rackHeight + lampSize, slot.z]}>
           <sphereGeometry args={[lampSize, LAMP_SEGMENTS, LAMP_SEGMENTS]} />
@@ -89,6 +147,6 @@ export function BlockoutHall({
           />
         </mesh>
       ))}
-    </group>
+    </>
   );
 }

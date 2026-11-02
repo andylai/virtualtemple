@@ -1,5 +1,5 @@
 import { DEFAULT_CONFIG } from '@temple/shared';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useT } from '../i18n/I18nProvider';
 import type { Meditation } from '../meditation/useMeditation';
 import { formatClock, remainingMs } from '../meditation/session';
@@ -18,8 +18,7 @@ export function MeditateButton({ meditation }: { meditation: Meditation }) {
         {t('meditation.button')}
       </button>
       {open && (
-        <Overlay>
-          <h2>{t('meditation.title')}</h2>
+        <Overlay title={t('meditation.title')} onClose={() => setOpen(false)}>
           <p>{t('meditation.choose')}</p>
           <ul className="hall-list">
             {DEFAULT_CONFIG.meditation.options.map((minutes) => (
@@ -45,11 +44,32 @@ export function MeditateButton({ meditation }: { meditation: Meditation }) {
   );
 }
 
+/**
+ * Shows the time left, or that the time is up, in the browser tab's title, so a visitor who has
+ * switched to another tab can see how long is left (and notice the end) without coming back.
+ */
+function useTabTitle(label: string | null, appTitle: string): void {
+  useEffect(() => {
+    if (label === null) {
+      return undefined;
+    }
+    document.title = `${label} · ${appTitle}`;
+    return () => {
+      document.title = appTitle;
+    };
+  }, [label, appTitle]);
+}
+
 /** The running timer, with a button to stand up, and the message when the time is up. */
 export function MeditationBar({ meditation }: { meditation: Meditation }) {
   const t = useT();
   const { session, finished } = meditation;
   const now = useNow(session === null ? null : TICK_MS);
+  const timeLeft =
+    session?.startedAtMs === null || session === null
+      ? null
+      : formatClock(remainingMs(session, now));
+  useTabTitle(timeLeft ?? (finished ? t('meditation.done') : null), t('app.title'));
   if (session === null) {
     return finished ? (
       <div className="meditation" role="status">

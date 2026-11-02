@@ -20,6 +20,27 @@ export const BLOCKOUT = {
   rackPadding: 0.5,
 } as const;
 
+/**
+ * Where the pictures from the manifest hang on the back wall, as offsets from its middle, and how
+ * big they are, in metres. They are first guesses: the art made for the hall decides the real ones.
+ */
+export const PICTURES = {
+  /** Lifted off the wall so it is never hidden inside it. */
+  lift: 0.02,
+  backdrop: { dx: 0, y: 2.25, width: 3, height: 2.4 },
+  banner: { dx: -3.2, y: 2.2, width: 0.9, height: 2.4 },
+  plaque: { dx: 3.2, y: 2, width: 1.2, height: 0.6 },
+} as const;
+
+/** A flat picture on a wall, described by its centre and size. It faces into the hall (towards larger z). */
+export interface PicturePlane {
+  x: number;
+  y: number;
+  z: number;
+  width: number;
+  height: number;
+}
+
 /** A box described by its centre and size. */
 export interface Box {
   x: number;
@@ -38,6 +59,8 @@ export interface HallLayout {
   statue: Box;
   /** The low shelves the lamps stand on: one on each side of the altar, where there are lamp places. */
   lampRacks: readonly Box[];
+  /** Where the manifest's wall pictures hang. */
+  pictures: { altarBackdrop: PicturePlane; banner: PicturePlane; plaque: PicturePlane };
   cushions: Hall['cushions'];
   lampSlots: Hall['lampSlots'];
   /** The point the camera looks at. */
@@ -75,6 +98,20 @@ function racksFor(slots: Hall['lampSlots'], centerX: number): Box[] {
   const left = slots.filter((slot) => slot.x < centerX);
   const right = slots.filter((slot) => slot.x >= centerX);
   return [left, right].filter((side) => side.length > 0).map(shelf);
+}
+
+function picture(
+  spot: { dx: number; y: number; width: number; height: number },
+  centerX: number,
+  wallZ: number,
+): PicturePlane {
+  return {
+    x: centerX + spot.dx,
+    y: spot.y,
+    z: wallZ + PICTURES.lift,
+    width: spot.width,
+    height: spot.height,
+  };
 }
 
 function box(center: Point, y: number, width: number, height: number, depth: number): Box {
@@ -133,6 +170,11 @@ export function buildHallLayout(hall: Hall): HallLayout {
       BLOCKOUT.statueWidth,
     ),
     lampRacks: racksFor(hall.lampSlots, centerX),
+    pictures: {
+      altarBackdrop: picture(PICTURES.backdrop, centerX, backZ),
+      banner: picture(PICTURES.banner, centerX, backZ),
+      plaque: picture(PICTURES.plaque, centerX, backZ),
+    },
     cushions: hall.cushions,
     lampSlots: hall.lampSlots,
     focus: { x: centerX, z: (bounds.minZ + bounds.maxZ) / 2 },

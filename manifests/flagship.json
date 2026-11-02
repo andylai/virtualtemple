@@ -145,6 +145,7 @@
       }
     ],
     "slots": {
+      "hallModel": null,
       "altarBackdrop": null,
       "banner": null,
       "plaque": null,
@@ -160,6 +161,7 @@
     },
     "chantingDurationSec": 300
   },
+  "avatar": { "model": null },
   "rituals": ["greet", "bow", "lamp", "sit"],
   "nicknames": {
     "adjectives": [

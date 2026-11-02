@@ -72,6 +72,36 @@ describe('parseManifest', () => {
     expect(problemsOf({ ...base, ...change })).toContain(expected);
   });
 
+  it.each([
+    ['a model slot with a picture', { statue: 'models/statue.png' }, 'must end with .glb'],
+    ['a picture slot with a model', { banner: 'models/banner.glb' }, 'must end with .webp'],
+    ['the hall as a picture', { hallModel: 'hall.jpg' }, 'must end with .glb'],
+  ])('rejects %s', (_label, slots, expected) => {
+    const hall = hallWith({ slots: { ...base.hall.slots, ...slots } });
+    expect(problemsOf({ ...base, hall })).toContain(expected);
+  });
+
+  it('accepts models, pictures, a compressed picture and an avatar model in their slots', () => {
+    const slots = {
+      hallModel: 'models/hall.glb',
+      statue: 'models/Statue.GLB',
+      altarBackdrop: 'images/backdrop.webp',
+      banner: 'images/banner.ktx2',
+      plaque: 'images/plaque.png',
+    };
+    const hall = hallWith({ slots });
+    expect(problemsOf({ ...base, hall, avatar: { model: 'models/avatar.glb' } })).toBe('');
+  });
+
+  it('rejects an audio path that is not an audio file and an avatar that is not a model', () => {
+    expect(problemsOf({ ...base, audio: { ...base.audio, ambient: 'audio/a.glb' } })).toContain(
+      'must end with .opus',
+    );
+    expect(problemsOf({ ...base, avatar: { model: 'models/avatar.png' } })).toContain(
+      'must end with .glb',
+    );
+  });
+
   it('rejects a cushion outside the walkable area', () => {
     const [first, ...rest] = base.hall.cushions;
     const moved = [{ ...first!, x: 50 }, ...rest];

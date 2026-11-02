@@ -482,3 +482,22 @@ Not seen on screen: the Meditate, Settings, About and Leave buttons, the timer b
 **The committed manifest still has the test chanting time `22:33` in place of `18:00`** (your edit, swept into the M5 commit). Restore `18:00` before launch, or give me the go-ahead and I will.
 
 Next: M7 (mobile layout and touch, asset pipeline, real art swap, performance, accessibility, translations, error states and share previews).
+
+## 20. M7 status (2026-11-02)
+
+| Task | Status |
+|---|---|
+| M7-1 Mobile layout and touch | Done in a phone-sized view of the browser (375x812, and 812x375 landscape): one bottom dock that wraps, one top stack, buttons at least 44 px, safe areas, no page scrolling or zooming from a drag on the hall. The camera reserves the dock's measured height (ADR-031). Pinch to zoom was dropped with the fixed camera (ADR-024). **Not tried on a real phone.** |
+| M7-2 Asset pipeline | Done: asset base URL from `VITE_ASSET_BASE_URL` (validated), file types checked by the manifest schema, models as `.glb` with Draco and KTX2 support, pictures including `.ktx2`, sounds as Opus. Loaders and decoders are separate downloads fetched only when a manifest names a model; the bundle budget counts the first download only (349 kB then, 353 kB now, of 400 kB). No Opus conversion script yet (no recordings exist). |
+| M7-3 Real art through manifest slots | Done and seen on screen with generated test files (statue model, banner picture, person model), then removed: the hall changed with a manifest edit only. With the files missing, the placeholders are drawn and nothing breaks. New slots: `hall.slots.hallModel` and `avatar.model`; models are authored as written in spec section 7. People are not yet tinted or animated by clip: the model moves with the same lean, bob and pulse as the capsule. **No real art exists yet**, and the wall pictures' places are guesses (`PICTURES` in `hallLayout.ts`). |
+| M7-4 Performance | Partly: pixel ratio capped at 2, no shadows and two lights (already so). A limit on drawn avatars was not added: a hall holds at most 50 people and the capsules are cheap; revisit with real avatar models. **No frame rate or memory was measured on a phone.** |
+| M7-5 Accessibility | Done as far as it can be checked without a screen reader: panels are dialogs with focus moved in and back, Escape and a tap outside close them, Tab stays inside, Space and Enter press a focused button instead of starting a ritual, arrow keys on a slider no longer walk the avatar, a hidden description of the hall, a controls list in About, the people count no longer announced on every change. Reduced motion was done in M6. **Not tested with VoiceOver, TalkBack or NVDA.** |
+| M7-6 Translations and browsers | Malay and Chinese (simplified) catalogs written as drafts and kept off: a language appears only when the manifest lists it (ADR-035). **They need a native reader and the religious advisor before `languages` is changed** (open question O-1). Manifest nicknames still have English words only. The browser matrix (Chrome, Safari including iOS, Firefox) was not run. |
+| M7-7 Error states and share previews | Done: crash screen with reload, offline message, interrupted 3D picture message, asset fallbacks, page description and Open Graph tags, a favicon. **No preview image**: it needs a designed picture and the real address (M8). Errors are not reported to a log service yet (M8). |
+
+Also: the meditation bell now rings on time in a background tab (ADR-033) and the tab title counts down. On phones that stop all audio in the background it may sound only on return. The Enter and retry buttons take focus. A Vite note: the hidden browser pane stops `requestAnimationFrame`, so the 3D scene does not start in it; the checks above used a small timer replacement for it.
+
+Tests: 452 in total (shared 96, room-logic 78, web 222, worker 56). Typecheck, lint, formatting and the build pass.
+
+Next: M8 (load test, security headers with a policy that allows the model decoders' WebAssembly, observability including error reports, production setup, privacy page, runbook).
+

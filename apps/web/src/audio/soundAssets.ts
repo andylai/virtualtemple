@@ -1,5 +1,6 @@
 import type { TempleManifest } from '@temple/shared';
 import type { SoundName } from './engine';
+import { assetUrl } from '../assets/assetUrl';
 import { synthAmbient, synthBell, synthChant, synthLampChime } from './synth';
 
 /** Placeholder sounds are made at this sample rate: low, to keep their memory small. */
@@ -23,7 +24,7 @@ export function soundUrl(manifest: TempleManifest, name: SoundName, baseUrl: str
     bell: audio.sfx.bell,
     lamp: audio.sfx.lamp,
   }[name];
-  return `${baseUrl}${path}`;
+  return assetUrl(path, baseUrl);
 }
 
 function synthesise(name: SoundName): Float32Array<ArrayBuffer> {

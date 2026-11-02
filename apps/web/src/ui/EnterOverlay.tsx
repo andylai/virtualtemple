@@ -13,11 +13,10 @@ export function EnterOverlay({
   const t = useT();
   const { active, progress } = useProgress();
   return (
-    <Overlay>
-      <h1>{t('app.title')}</h1>
+    <Overlay title={t('app.title')} level={1}>
       {sceneReady ? (
         <>
-          <button type="button" onClick={onEnter}>
+          <button type="button" autoFocus onClick={onEnter}>
             {t('enter.button')}
           </button>
           <p>{t('enter.hint')}</p>

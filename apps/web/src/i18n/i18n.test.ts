@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { en } from './en';
-import { CATALOGS, pickLanguage, translate } from './translate';
+import { CATALOGS, availableLanguages, pickLanguage, translate } from './translate';
 
 const SRC_DIR = join(import.meta.dirname, '..');
 
@@ -43,7 +43,39 @@ describe('translate', () => {
   });
 
   it('falls back to English for a language without a catalog', () => {
-    expect(translate('ms', 'enter.button')).toBe('Enter');
+    expect(translate('ms', 'enter.button', {}, { en })).toBe('Enter');
+  });
+
+  it('uses the language asked for when it has a catalog', () => {
+    expect(translate('ms', 'enter.button')).toBe('Masuk');
+    expect(translate('zh', 'enter.button')).toBe('进入');
+  });
+});
+
+describe('every catalog', () => {
+  const markers = (text: string) =>
+    [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
+
+  it('uses the same {markers} as English in every message, so no value is lost or left showing', () => {
+    for (const [language, catalog] of Object.entries(CATALOGS)) {
+      for (const key of Object.keys(en) as (keyof typeof en)[]) {
+        expect(markers(catalog[key]), `${language}: ${key}`).toEqual(markers(en[key]));
+      }
+    }
+  });
+
+  it('has no empty message', () => {
+    for (const catalog of Object.values(CATALOGS)) {
+      expect(Object.values(catalog).filter((text) => text.trim() === '')).toEqual([]);
+    }
+  });
+});
+
+describe('availableLanguages', () => {
+  it('lists only languages that have a catalog and that the manifest offers', () => {
+    expect(availableLanguages(['en'])).toEqual(['en']);
+    expect(availableLanguages(['en', 'ms'])).toEqual(['en', 'ms']);
+    expect(availableLanguages(['en', 'zh'], { en })).toEqual(['en']);
   });
 });
 

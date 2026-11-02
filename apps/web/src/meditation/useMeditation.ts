@@ -1,5 +1,5 @@
 import { RITUALS } from '@temple/shared';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AudioEngine } from '../audio/engine';
 import type { HallState } from '../net/hallState';
 import { useNow } from '../ui/useNow';
@@ -22,6 +22,40 @@ export function observe(state: HallState): Observation {
     walking: state.walk !== null,
     refused: state.ritualNotice?.ritualId === 'sit',
   };
+}
+
+/**
+ * Books the end-of-time bell on the audio clock as soon as the clock starts, so it rings on time even
+ * when the tab is in the background and the page's own timers are slowed down. It is cancelled if the
+ * visitor stands up early. `rang` is called when the time is up: it rings the bell by hand only if
+ * none was booked (sound not unlocked).
+ */
+function useBell(engine: AudioEngine, session: MeditationSession | null): () => void {
+  const booked = useRef(false);
+  const timeIsUp = useRef(false);
+  const startedAtMs = session?.startedAtMs ?? null;
+  const durationMs = session?.durationMs ?? null;
+  useEffect(() => {
+    if (startedAtMs === null || durationMs === null) {
+      return undefined;
+    }
+    const cancel = engine.scheduleBell(startedAtMs + durationMs);
+    booked.current = cancel !== null;
+    timeIsUp.current = false;
+    return () => {
+      // After the time is up the bell is already ringing; cancelling would cut it off.
+      if (!timeIsUp.current) {
+        cancel?.();
+      }
+      booked.current = false;
+    };
+  }, [engine, startedAtMs, durationMs]);
+  return useCallback(() => {
+    timeIsUp.current = true;
+    if (!booked.current) {
+      engine.playSfx('bell');
+    }
+  }, [engine]);
 }
 
 /** The meditation timer's state and what the visitor can do with it. */
@@ -48,6 +82,7 @@ export function useMeditation(
   const [finished, setFinished] = useState(false);
   const tick = useNow(session === null ? null : TICK_MS);
   const { seated, walking, refused } = observe(state);
+  const timeIsUp = useBell(engine, session);
 
   useEffect(() => {
     if (session === null) {
@@ -55,14 +90,14 @@ export function useMeditation(
     }
     const step = stepMeditation(session, { seated, walking, refused }, Date.now());
     if (step.finished) {
-      engine.playSfx('bell');
+      timeIsUp();
       stopRitual();
       setFinished(true);
     }
     if (step.session !== session) {
       setSession(step.session);
     }
-  }, [session, tick, seated, walking, refused, engine, stopRitual]);
+  }, [session, tick, seated, walking, refused, timeIsUp, stopRitual]);
 
   useEffect(() => {
     if (!finished) {

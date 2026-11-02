@@ -30,8 +30,7 @@ export function ChangeHall({ currentHall, onPick }: ChangeHallProps) {
         {t('hall.change')}
       </button>
       {open && (
-        <Overlay>
-          <h2>{t('hall.change')}</h2>
+        <Overlay title={t('hall.change')} onClose={() => setOpen(false)}>
           {listing === 'loading' && <p>{t('hall.loading')}</p>}
           {listing === null && <p>{t('hall.listError')}</p>}
           {listing !== null && listing !== 'loading' && (
