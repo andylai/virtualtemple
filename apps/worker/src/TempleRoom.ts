@@ -34,7 +34,7 @@ import { DirectoryReporter } from './directoryReporter';
 import { HallChanting } from './hallChanting';
 import { HallRituals } from './hallRituals';
 import { manifestFor } from './manifests';
-import { Telemetry } from './telemetry';
+import { Telemetry, describeError } from './telemetry';
 
 const MS_PER_SECOND = 1000;
 /**
@@ -63,6 +63,8 @@ export class TempleRoom extends Server<Env> {
   private readonly limiters = new Map<string, TokenBucket>();
   private readonly strikes = new Map<string, { count: number; lastAtMs: number }>();
   private readonly lastSeenMs = new Map<string, number>();
+  /** Messages received since the last sweep, logged with it so rates can be charted without a log line per message. */
+  private messagesSinceSweep = 0;
   private tickNumber = 0;
   private tickTimer: ReturnType<typeof setTimeout> | null = null;
   private dueTimer: ReturnType<typeof setTimeout> | null = null;
@@ -207,6 +209,7 @@ export class TempleRoom extends Server<Env> {
       return;
     }
     this.lastSeenMs.set(connection.id, nowMs);
+    this.messagesSinceSweep += 1;
     if (!this.limiterFor(connection.id, nowMs).tryTake(nowMs)) {
       this.refuse(connection, state, ERROR_CODE.rateLimited, nowMs);
       return;
@@ -247,6 +250,14 @@ export class TempleRoom extends Server<Env> {
     }
   }
 
+  override onError(_connection: Connection, error: unknown): void {
+    this.telemetry.event('connection_error', describeError(error), 'error');
+  }
+
+  override onException(error: unknown): void {
+    this.telemetry.event('unhandled_exception', describeError(error), 'error');
+  }
+
   override async onAlarm(): Promise<void> {
     await this.sweepExpired(Date.now());
   }
@@ -263,7 +274,13 @@ export class TempleRoom extends Server<Env> {
     this.rituals.runDue(nowMs);
     this.syncChanting(nowMs);
     const remainingGraces = await this.dropExpiredGraces(nowMs);
-    this.telemetry.event('sweep', { remaining_graces: remainingGraces });
+    this.telemetry.event('sweep', {
+      remaining_graces: remainingGraces,
+      connections: [...this.getConnections()].length,
+      population: this.registry.size,
+      messages_since_last_sweep: this.messagesSinceSweep,
+    });
+    this.messagesSinceSweep = 0;
     this.reporter.heartbeat(nowMs);
     this.armDueTimer();
     if (remainingGraces > 0 || [...this.getConnections()].length > 0) {

@@ -501,3 +501,22 @@ Tests: 452 in total (shared 96, room-logic 78, web 222, worker 56). Typecheck, l
 
 Next: M8 (load test, security headers with a policy that allows the model decoders' WebAssembly, observability including error reports, production setup, privacy page, runbook).
 
+
+## 21. M8 status (2026-11-03)
+
+M8 is the milestone that depends most on things outside the repository, so it is split into what is done and tested here and what waits for a person. The checklist that ties them together is in [operations.md](operations.md) section 8.
+
+| Task | Status |
+|---|---|
+| M8-1 Load test | Tool done: `tools/load-test` (`hall`, `halls`, `stampede`), documented in [load-test.md](load-test.md). Local runs (50 into one hall, 5 halls of 50, 200 arriving at once) placed everyone with no hall over capacity and no unexpected closes; see the caveats there. **Not run against a deployed staging**, so latency, cost and the spec 4.3 numbers (O-7) are not confirmed. A cost model for several launch sizes is written; **the target size is a decision for you.** |
+| M8-2 Security | Done: Content-Security-Policy and other headers from `public/_headers`, checked on every build and seen working in a browser against the built site and Worker (no violations, hall joined). Per-address limits on connections, the halls list and reports (seen refusing with 429 locally), Worker answers with `nosniff` and `no-store`, origin allow-list as one https address per environment. **Not exercised:** a Draco or KTX2 model under the policy (the policy allows it), and the limiters on Cloudflare itself. **Known gap:** many addresses could still fill the halls (mitigations in operations.md section 4). |
+| M8-3 Observability | Done in code: one `sweep` line per occupied hall carries connections, population and message counts; errors and exceptions are logged; browsers report problems (`POST /api/report`, ADR-039); `observability` is on in both environments; the event list is in operations.md section 5. Destination decided: Cloudflare Workers logs (O-9, ADR-040). **Not seen on a live account:** the queries and any alert rules still have to be set there. |
+| M8-4 Production setup | Done in the repository: staging and production environments in `wrangler.jsonc` (checked by a dry deploy), the Worker serves the site (ADR-036, replacing "Pages project"), `pnpm deploy:check` and `deploy:staging` / `deploy:production` gates, CI on GitHub (typecheck, lint, format, tests, build). **Needs you:** the Cloudflare account on the Workers Paid plan, the spend alert, the domain, replacing `CHANGE-ME`, and the first deploy. Nothing was deployed. |
+| M8-5 Runbook and launch | Done: runbook, rollback steps and launch checklist in operations.md. **Open, and block the public launch:** the religious advisor's sign-off (O-5), the donation decision (O-3), the staging acceptance run on real devices, and restoring the test values (the chanting test time in the manifest; `lamp.durationSec` is 30 in code while the spec says 300). |
+| M8-6 Privacy and terms | Drafts written and linked from About: `public/privacy.html`, `terms.html`, and [privacy-check.md](privacy-check.md) with the questions for a lawyer. **Not legal advice and not reviewed.** The production deploy refuses until the drafts are replaced by reviewed text with a contact address. English only for now. |
+
+Also: the Meditate button joined the Greet, Bow and Light a lamp row (M7 follow-up).
+
+Tests: 512 in total (shared 111, room-logic 78, web 226, worker 76, tools 21). Typecheck, lint, formatting and the build pass.
+
+Acceptance criteria (spec 14) on a deployed preview: not yet possible, because nothing is deployed. Earlier milestones tested most of criteria 1 to 9 piece by piece, but they have not been walked through as a set, on real phones, or on a deployed preview; 10 needs the staging run.

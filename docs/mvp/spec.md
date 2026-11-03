@@ -153,7 +153,7 @@ Details and rationale: intent.md section 4. The browser contacts Pages and the W
 | Component | Responsibility |
 |---|---|
 | Frontend (`apps/web`) | 3D scene, input, UI, audio, WebSocket client, interpolation. |
-| Worker (`apps/worker`) | Validates the request, maps `hall` to a Durable Object, forwards the WebSocket, serves `GET /api/halls` (people per hall and the suggested hall) from the hall directory. |
+| Worker (`apps/worker`) | Validates the request, maps `hall` to a Durable Object, forwards the WebSocket, serves `GET /api/halls` (people per hall and the suggested hall) from the hall directory, takes `POST /api/report` (problems seen by browsers, section 8.5), applies per-address limits, and in the deployed environments also serves the built web app so that the page, sockets and API share one address. |
 | Hall directory (`HallDirectory`, one Durable Object per temple) | Keeps the latest people count of each hall so the Worker can answer "which hall has space" without waking every hall (section 5.5). |
 | Room (`TempleRoom`, PartyServer on a Durable Object) | Player list, positions, seats, lamps, schedule, broadcast. |
 | Shared package (`packages/shared`) | Message types, validation schemas, manifest types, constants. |
@@ -348,9 +348,11 @@ One manifest ships with the app. The room, Worker and frontend read it through a
 ### 8.3 Security and abuse
 - Every WebSocket connection is validated at the Worker: the `Origin` header is checked against the allowed origins from configuration, and `hall` must be a whole number from 1 to `hall.count` before a Durable Object is touched.
 - Per-connection rate limits (`net.maxMessagesPerSecond`, `ritual.cooldownMs`) and a maximum message size.
+- Per-address limits at the Worker on new connections, on the halls list and on problem reports (Workers Rate Limiting bindings, configured in `wrangler.jsonc` for the deployed environments only). They are generous because many mobile users share one address, and a failing limiter lets visitors through. Addresses are used as the limiter's key only and are never logged or stored.
 - No user-generated text anywhere, which removes moderation and most injection risks. Nicknames are word IDs resolved on the server.
 - No secrets in the client or in the repository; deploy credentials come from the environment.
-- A Content-Security-Policy restricts script and asset origins.
+- A Content-Security-Policy, sent from `apps/web/public/_headers`, allows scripts, styles, images, sound, workers and connections from the site's own address only (plus `'wasm-unsafe-eval'` for the model decoders, `blob:` for their workers, and `wss:` because some Safari versions do not treat `'self'` as covering sockets). It also sets `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` and HSTS, and forbids framing. Every build checks the policy and fails on an inline script, an unsafe source, or an art address the policy does not list. The Worker's own answers carry `X-Content-Type-Options: nosniff` and `Cache-Control: no-store`.
+- Known gap: someone with many addresses could fill every hall. See docs/mvp/operations.md for mitigations.
 
 ### 8.4 Privacy
 - No accounts, no stored personal data. `localStorage` holds only nickname word IDs and audio settings.
@@ -358,9 +360,10 @@ One manifest ships with the app. The room, Worker and frontend read it through a
 - If any personal data is ever added, review it against Malaysia's PDPA first.
 
 ### 8.5 Observability
-- Structured logs only, with `correlation_id`, `temple_id` and `room_id` on every entry. No `console.log` in production code paths.
-- Metrics: active connections, joins, leaves, messages per second, rejected messages by reason, alarm runs, and errors.
+- Structured logs only, with `temple_id` on every entry and `hall_id` and `correlation_id` where there is a hall or a request. No `console.log` in production code paths. Logs go to the Worker's logs in the Cloudflare dashboard (open question O-9, decided in ADR-040).
+- Metrics: active connections, joins, leaves, messages per second, rejected messages by reason, alarm runs, and errors. A hall that has people writes one `sweep` line every `hall.sweepSec` with its connections, population and the messages received since the last one, which gives the first, the fifth and the sixth without a line per message. The full list of events and fields is in docs/mvp/operations.md.
 - The correlation ID is generated at the Worker and passed to the room.
+- Browsers report problems (a crash, no WebGL, a lost 3D picture, an asset that failed, a connection that gave up) with `POST /api/report`: a body of at most 512 bytes holding a `kind` from a fixed list and an optional note of at most 200 characters, once per kind per page load. The Worker counts them by kind and browser family (for example `safari-mobile`), logs the note at warning level, and keeps nothing else about the visitor. The endpoint checks the origin, is rate limited per address, and answers 204 without a body.
 
 ### 8.6 Accessibility
 - Keyboard-operable controls and visible focus.
@@ -379,6 +382,9 @@ One manifest ships with the app. The room, Worker and frontend read it through a
   apps/
     web/            # frontend: src/{main,scene,ui,net,audio,store,i18n}
     worker/         # Worker + TempleRoom adapter (PartyServer)
+  tools/
+    load-test/      # scripted visitors for the load test
+    deploy/         # checks the deploy configuration before wrangler deploy
   packages/
     shared/         # message types, schemas, manifest types, constants
     room-logic/     # plain TS room rules (no Cloudflare imports)
@@ -462,8 +468,8 @@ Phase 1 is done when all of these hold on a deployed preview:
 | O-4 | Commission original 3D assets, or start with placeholders and licensed open assets? | Milestone 1 |
 | O-5 | Who is the religious advisor who signs off on rituals and wording? | Milestone 3 |
 | O-6 | React Three Fiber (React) or plain Three.js for the frontend? | Milestone 1 |
-| O-7 | Confirm the numbers in section 4.3 after the load test. | Milestone 7 |
+| O-7 | Confirm the numbers in section 4.3 after the load test. Tool and a local run exist (docs/mvp/load-test.md); the deployed run is waiting for staging. | Milestone 8 |
 | O-8 | Hall names: plain "Hall 1, Hall 2…" (proposed for Phase 1) or themed names? | Milestone 6 |
-| O-9 | Where do logs and metrics go (for example New Relic, OpenTelemetry, or Cloudflare's own tools)? | Milestone 2 |
+| O-9 | Where do logs and metrics go? **Decided for Phase 1: Cloudflare's own Workers logs** (ADR-040); only `Telemetry` changes if that moves. | Milestone 2 |
 
 Decisions that change the architecture are recorded as ADRs in `AGENTS.md`.

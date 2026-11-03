@@ -1,7 +1,9 @@
 import { flagshipManifest } from '@temple/shared/flagship';
 import type { Point } from '@temple/shared';
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLanguage, useT } from './i18n/I18nProvider';
+import { reportProblem } from './net/reportProblem';
+import { useProblemReports } from './net/useProblemReports';
 import { createHallClient, requestedHallFromAddress, type HallClient } from './net/hallClient';
 import type { AudioEngine } from './audio/engine';
 import { useHallAudio } from './audio/useHallAudio';
@@ -141,6 +143,7 @@ function HallView({ client }: { client: HallClient }) {
   const [pictureLost, setPictureLost] = useState(false);
   const [entered, setEntered] = useState(false);
   const litLamps = useMemo(() => new Set(state.lamps.keys()), [state.lamps]);
+  useProblemReports(state.status, pictureLost);
 
   useRitualKeys(state.status === 'joined', actions.startRitual);
   const enter = useCallback(() => {
@@ -195,6 +198,11 @@ export function App() {
   const [client] = useState(() =>
     createHallClient(language, requestedHallFromAddress(window.location.search)),
   );
+  useEffect(() => {
+    if (!hasWebGl) {
+      reportProblem('no_webgl');
+    }
+  }, [hasWebGl]);
   if (!hasWebGl) {
     return (
       <Overlay>

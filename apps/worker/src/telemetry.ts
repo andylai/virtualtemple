@@ -57,3 +57,10 @@ export class Telemetry {
     this.event('metric', { metric, value: 1, ...labels });
   }
 }
+
+/** The parts of an error that are safe and useful to log: its name and message, never its stack or data. */
+export function describeError(error: unknown): { error_name: string; error_message: string } {
+  return error instanceof Error
+    ? { error_name: error.name, error_message: error.message }
+    : { error_name: 'NonError', error_message: String(error) };
+}

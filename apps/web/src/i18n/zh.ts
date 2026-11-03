@@ -49,6 +49,8 @@ export const zh = {
   'about.button': '关于',
   'about.title': '关于本寺',
   'about.privacy': '无需账号。您的名字和设置只保存在这个浏览器中。',
+  'about.privacyLink': '隐私说明',
+  'about.termsLink': '使用条款',
   'about.credits': '致谢',
   'about.noCredits': '目前没有使用任何第三方的声音、图像或模型。',
   'exit.button': '离开',

@@ -15,7 +15,11 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "pnpm -r --if-present test",
-    "build": "pnpm -r --if-present build"
+    "build": "pnpm -r --if-present build",
+    "deploy:check": "pnpm --filter @temple/deploy start",
+    "deploy:staging": "pnpm build && pnpm deploy:check staging && pnpm --filter @temple/worker exec wrangler deploy --env staging",
+    "deploy:production": "pnpm build && pnpm deploy:check production && pnpm --filter @temple/worker exec wrangler deploy --env production",
+    "loadtest": "pnpm --filter @temple/load-test start"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

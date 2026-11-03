@@ -1,0 +1,22 @@
+{
+  "name": "@temple/load-test",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Scripted visitors for the load test (spec 11, plan M8-1). Run it against a deployed preview.",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@temple/shared": "workspace:*",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.20.6",
+    "vitest": "~4.1.12"
+  }
+}

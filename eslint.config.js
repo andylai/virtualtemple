@@ -30,9 +30,14 @@ export default tseslint.config(
     rules: { 'no-console': 'off' },
   },
   {
+    // The load-test tool is a command-line program: its output is the console.
+    files: ['tools/**/*.ts'],
+    rules: { 'no-console': 'off' },
+  },
+  {
     // Build scripts run in Node and print their result to the terminal on purpose.
     files: ['**/scripts/**/*.mjs'],
-    languageOptions: { globals: { console: 'readonly', process: 'readonly' } },
+    languageOptions: { globals: { console: 'readonly', process: 'readonly', URL: 'readonly' } },
     rules: { 'no-console': 'off' },
   },
 );

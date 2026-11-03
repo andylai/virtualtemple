@@ -8,6 +8,7 @@ import { suggestHall, visibleHalls } from '@temple/room-logic';
 import { routePartykitRequest } from 'partyserver';
 import { configFor } from './config';
 import { readHallCounts } from './directoryClient';
+import { handleReport, plain, tooManyRequests, withinAllowance } from './edge';
 import { Telemetry } from './telemetry';
 
 export { HallDirectory } from './HallDirectory';
@@ -27,16 +28,20 @@ async function handleSocket(request: Request, env: Env): Promise<Response> {
   const telemetry = new Telemetry({ temple_id: env.TEMPLE_SLUG });
   if (origin === null || !allowedOrigins(env).has(origin)) {
     telemetry.count('rejected_request', { reason: 'origin' });
-    return new Response('Origin not allowed', { status: 403 });
+    return plain('Origin not allowed', 403);
   }
   if (request.headers.get('Upgrade') !== 'websocket') {
-    return new Response('Expected a WebSocket upgrade', { status: 426 });
+    return plain('Expected a WebSocket upgrade', 426);
+  }
+  if (!(await withinAllowance(env.CONNECT_LIMITER, request))) {
+    telemetry.count('rejected_request', { reason: 'connect_rate' });
+    return tooManyRequests();
   }
   const url = new URL(request.url);
   const hall = parseHallNumber(url.searchParams.get('hall'), configFor(env).hall.count);
   if (hall === null) {
     telemetry.count('rejected_request', { reason: 'hall' });
-    return new Response('Invalid hall', { status: 400 });
+    return plain('Invalid hall', 400);
   }
   // PartyServer takes the path segment as the room name without decoding it, so the name must be
   // URL-safe as written (the slug is restricted to lowercase letters, digits and hyphens).
@@ -47,7 +52,7 @@ async function handleSocket(request: Request, env: Env): Promise<Response> {
   forwarded.headers.set(CORRELATION_HEADER, correlationId);
   telemetry.with({ hall_id: hall, correlation_id: correlationId }).event('ws_request');
   const response = await routePartykitRequest(forwarded, env, { locationHint: LOCATION_HINT });
-  return response ?? new Response('Not found', { status: 404 });
+  return response ?? plain('Not found', 404);
 }
 
 /** Lets the page, if served from another allowed origin, read the answer. */
@@ -63,7 +68,17 @@ function corsHeaders(request: Request, env: Env): Record<string, string> {
  * When the directory cannot be reached the answer is 503 and the browser tries halls in order.
  */
 async function handleHalls(request: Request, env: Env): Promise<Response> {
-  const headers = { 'Cache-Control': 'no-store', ...corsHeaders(request, env) };
+  const headers = {
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+    ...corsHeaders(request, env),
+  };
+  if (!(await withinAllowance(env.HALLS_LIMITER, request))) {
+    new Telemetry({ temple_id: env.TEMPLE_SLUG }).count('rejected_request', {
+      reason: 'halls_rate',
+    });
+    return tooManyRequests();
+  }
   const { count, maxPlayers, suggestSpread } = configFor(env).hall;
   try {
     const counts = await readHallCounts(env, Date.now());
@@ -91,7 +106,15 @@ export default {
   async fetch(request, env): Promise<Response> {
     const { pathname } = new URL(request.url);
     if (pathname === '/health') {
-      return new Response('ok');
+      return plain('ok');
+    }
+    if (pathname === '/api/report') {
+      const origin = request.headers.get('Origin');
+      return handleReport(request, {
+        originAllowed: origin !== null && allowedOrigins(env).has(origin),
+        limiter: env.REPORT_LIMITER,
+        telemetry: new Telemetry({ temple_id: env.TEMPLE_SLUG }),
+      });
     }
     if (pathname === '/api/halls' && request.method === 'GET') {
       return handleHalls(request, env);
@@ -99,6 +122,6 @@ export default {
     if (pathname === '/ws') {
       return handleSocket(request, env);
     }
-    return new Response('Not found', { status: 404 });
+    return plain('Not found', 404);
   },
 } satisfies ExportedHandler<Env>;

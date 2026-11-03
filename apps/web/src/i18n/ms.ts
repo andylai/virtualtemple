@@ -49,6 +49,8 @@ export const ms = {
   'about.title': 'Tentang kuil ini',
   'about.privacy':
     'Tiada akaun diperlukan. Nama dan tetapan anda hanya disimpan dalam pelayar ini.',
+  'about.privacyLink': 'Nota privasi',
+  'about.termsLink': 'Syarat penggunaan',
   'about.credits': 'Penghargaan',
   'about.noCredits': 'Belum ada bunyi, imej atau model pihak ketiga yang digunakan.',
   'exit.button': 'Keluar',

@@ -18,6 +18,18 @@ export function AboutPanel() {
       {open && (
         <Overlay title={t('about.title')} onClose={() => setOpen(false)}>
           <p>{t('about.privacy')}</p>
+          <ul className="credits">
+            <li>
+              <a href="/privacy.html" target="_blank" rel="noreferrer noopener">
+                {t('about.privacyLink')}
+              </a>
+            </li>
+            <li>
+              <a href="/terms.html" target="_blank" rel="noreferrer noopener">
+                {t('about.termsLink')}
+              </a>
+            </li>
+          </ul>
           <h3>{t('about.controls')}</h3>
           <p>{t('about.controlsBody')}</p>
           <h3>{t('about.credits')}</h3>

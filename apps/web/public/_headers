@@ -1,0 +1,23 @@
+# Security headers for the built site (Cloudflare Workers static assets read this file).
+# The Worker's own answers (/api, /ws) get theirs in apps/worker/src/edge.ts.
+#
+# The policy allows only this site's own address, because the page, the sockets and the API share
+# one address. It is checked on every build by scripts/check-headers.mjs.
+#   script-src 'wasm-unsafe-eval'  the Draco and KTX2 model decoders are WebAssembly
+#   worker-src blob:               the decoders run in workers made from a blob
+#   connect-src wss:               some Safari versions do not treat 'self' as covering sockets
+#   style-src-attr 'unsafe-inline' React and the 3D canvas set style="..." on elements; the
+#                                  style sheets themselves still allow 'self' only
+# If art or sound is served from another address (VITE_ASSET_BASE_URL), add that address to
+# img-src, media-src and connect-src, or the build check fails.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self' wss:; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+  Strict-Transport-Security: max-age=31536000
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

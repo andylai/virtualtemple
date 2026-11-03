@@ -47,6 +47,8 @@ export const en = {
   'about.button': 'About',
   'about.title': 'About this temple',
   'about.privacy': 'No account is needed. Your name and settings are kept only in this browser.',
+  'about.privacyLink': 'Privacy note',
+  'about.termsLink': 'Terms of use',
   'about.credits': 'Credits',
   'about.noCredits': 'No third-party sounds, images or models are used yet.',
   'exit.button': 'Leave',

@@ -33,7 +33,16 @@ After changing `apps/worker/wrangler.jsonc`, regenerate bindings types: `pnpm --
 
 `pnpm dev` runs the Worker and the web app together. Open `http://localhost:5173/?hall=1` in two tabs, press Enter in each, and walk with WASD, the arrow keys, or a click on the floor. The web app alone (the Worker is only needed after you press Enter): `pnpm --filter @temple/web dev`. Add `?debug=1&stress=50` for the frame-rate overlay and 50 stand-in avatars. For a phone on the same Wi-Fi use `pnpm --filter @temple/web dev:lan` and open the Network URL it prints.
 
-`pnpm build` also checks the JavaScript the page downloads first against `apps/web/bundle-budget.json` (code fetched later, such as the model loaders, is listed but not counted).
+Operations (see [docs/mvp/operations.md](docs/mvp/operations.md) and [docs/mvp/load-test.md](docs/mvp/load-test.md)):
+
+```bash
+pnpm loadtest --target https://<address> --scenario hall|halls|stampede   # scripted visitors
+pnpm deploy:check staging|production   # refuses while the configuration is not ready
+pnpm deploy:staging                    # build, check, wrangler deploy --env staging
+pnpm deploy:production                 # the same for the public temple
+```
+
+`pnpm build` also checks the JavaScript the page downloads first against `apps/web/bundle-budget.json` (code fetched later, such as the model loaders, is listed but not counted), and the Content-Security-Policy in `apps/web/public/_headers`.
 
 ## Layout
 
@@ -42,6 +51,8 @@ apps/web            frontend: Vite + React + React Three Fiber (app shell, block
 apps/worker         Worker, TempleRoom (hall) and HallDirectory Durable Objects
 packages/shared     message types, constants, validation helpers used by both sides
 packages/room-logic plain TypeScript room rules with no Cloudflare imports (unit-testable)
+tools/load-test     scripted visitors for the load test (tsx, ws)
+tools/deploy        checks apps/worker/wrangler.jsonc before a deploy
 manifests/          temple manifests (flagship.json); every file is validated by a test
 docs/mvp/           intent, spec, plan, spikes
 ```
@@ -98,3 +109,10 @@ docs/mvp/           intent, spec, plan, spikes
 - ADR-033 — The meditation bell is booked on the audio clock; a hidden tab keeps the clock running but silences every layer except sound effects — Ordinary timers are slowed in background tabs, and the bell must still ring on time without background chanting playing against the visitor's choice.
 - ADR-034 — Models and pictures come from manifest slots, load lazily, and fall back to the placeholder — Real art then replaces the placeholder with no code change (acceptance criterion 9); the loaders and decoders (Draco, KTX2) are separate downloads fetched only when a manifest names a model, so the placeholder temple does not pay for them, and the bundle budget counts only the first download.
 - ADR-035 — A language is offered only when it has a catalog and the manifest lists it — Draft translations can be kept in the repository without reaching visitors before review.
+- ADR-036 — One Worker serves the built web app and the API on one address (Workers static assets), instead of a Pages project plus a Worker — The page, the sockets and the API share an origin, so there is no cross-origin traffic, `ALLOWED_ORIGINS` is one address, the Content-Security-Policy can say `'self'`, and there is one deploy and one rollback. This replaces the plan's "Pages project" in M8-4.
+- ADR-037 — Per-address limits use Workers Rate Limiting bindings declared only in the staging and production environments, and a failing limiter lets visitors through — Local development and tests need no account, many Malaysian mobile users share one address so the limits are generous, and refusing everyone because a limiter broke is worse than refusing no one.
+- ADR-038 — The Content-Security-Policy is a static `_headers` file checked on every build — A policy that is only reviewed by eye drifts. The build fails on an inline script, an unsafe source or an art address the policy lacks, and the deployed policy is the one tested.
+- ADR-039 — Browsers report problems as a fixed kind plus a short note, once per kind per page, and the server counts them by browser family — The page needs an error signal without a log service or personal data: no stack traces, no addresses, no free-form fields (the schema is strict), and a failing page cannot loop on reporting.
+- ADR-040 — Logs and metrics go to Cloudflare Workers logs as structured JSON through `Telemetry`; gauges are carried by the periodic `sweep` line — Resolves O-9 for Phase 1 with nothing to run or pay for beyond the plan. A line per message would swamp the logs, so message rates ride on the sweep. Moving the destination changes only `telemetry.ts`.
+- ADR-041 — The privacy note and terms are static English pages marked as drafts, and the production deploy refuses while they are drafts or lack a contact address — A legal review is a person's decision that code cannot make, so the gate is what keeps unreviewed text off the public site.
+- ADR-042 — Operational tools are workspace packages under `tools/`, run with `tsx` and tested with Vitest — The load test and the deploy check must reuse the shared message schemas and be held to the same lint, typecheck and test rules as the product.
