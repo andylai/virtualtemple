@@ -1,3 +1,8 @@
+import { flagshipManifest } from '@temple/shared/flagship';
+import { Chanting } from './Chanting';
+import { HallIcon } from './HallIcon';
+import { Hud } from './Hud';
+import { MoreMenu } from './MoreMenu';
 import type { RitualId } from '@temple/shared';
 import { useEffect, useRef } from 'react';
 import type { AudioEngine } from '../audio/engine';
@@ -53,21 +58,29 @@ export function Toolbar(props: ToolbarProps) {
     return null;
   }
   const self = state.selfId === null ? undefined : state.players.get(state.selfId);
+  const tracks = flagshipManifest.audio.personalChants;
   const canStop = state.walk !== null || self?.ritual?.ritualId === 'bow';
   return (
-    <div className="dock" ref={dock}>
-      <RitualBar onStart={onStartRitual} onStop={onStopRitual} canStop={canStop}>
-        <MeditateButton meditation={meditation} />
-      </RitualBar>
-      <div className="toolbar">
-        <ChangeHall currentHall={state.hall} onPick={onPickHall} />
-        <InviteButton hall={state.hall} />
-        <SettingsPanel engine={engine} />
-        <AboutPanel />
-        <button type="button" onClick={onLeave}>
-          {t('exit.button')}
-        </button>
+    <>
+      <header className="hall-header">
+        <Hud state={state} />
+        <MoreMenu>
+          <ChangeHall currentHall={state.hall} onPick={onPickHall} />
+          <InviteButton hall={state.hall} />
+          <SettingsPanel engine={engine} />
+          <AboutPanel />
+          <button className="leave-action" type="button" onClick={onLeave}>
+            <HallIcon name="leave" />
+            {t('exit.button')}
+          </button>
+        </MoreMenu>
+      </header>
+      <div className="dock" ref={dock}>
+        <RitualBar onStart={onStartRitual} onStop={onStopRitual} canStop={canStop}>
+          <MeditateButton meditation={meditation} />
+          {tracks.length > 0 && <Chanting />}
+        </RitualBar>
       </div>
-    </div>
+    </>
   );
 }

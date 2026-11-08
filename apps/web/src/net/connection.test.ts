@@ -83,7 +83,7 @@ function setup() {
   let clock = 1000;
   const connection = new HallConnection({
     urlForHall: (hall) => `ws://test/ws?hall=${hall}`,
-    language: 'en',
+    language: () => 'en',
     store,
     tracks,
     ritualClock,

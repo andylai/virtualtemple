@@ -108,6 +108,8 @@ Rituals are config entries in the manifest (id, key binding, animation, sound, d
 - FR-44: The "Settings" button opens a panel with the three volume sliders and a button to play or stop the visitor's own chanting (which pauses while a communal session plays), plus the settings of FR-36.
 
 ### 3.7 Communal chanting
+
+Launch scope: the flagship has no regular or special-day chanting slots. Settings omit the chanting volume slider, and the ritual dock still offers text for personal recitation.
 - FR-27: The room reads the schedule (times plus time zone) from the manifest. When a session comes within `audio.preloadLeadSec` of starting (proposed 120 s), the server broadcasts `chanting_start` with the absolute start time in UTC milliseconds, the duration and the recording's id, and `chanting_end` when it is over. Announcing early is what lets browsers download the recording first (FR-42). The same session announced again changes nothing. The schedule is worked out from the clock on the temple's time zone, using the platform's own time zone support and no library, so nothing is stored and a hall that was unloaded from memory picks it up again. The session length is `audio.chantingDurationSec` in the manifest (the length of the recording; 300 s for the placeholder). Announcements go out from the alarm, so they can be up to `hall.sweepSec` late, which is harmless because the start time is absolute.
 - FR-28: Audio is not streamed. Each client plays its own copy of the chanting file, offset by `now - startAt`.
 - FR-29: A player who joins during a session, or within the lead time of one, receives it as `chanting` in the welcome message and starts at the right position. A recording shorter than the session repeats, and everyone is at the same place in it.

@@ -63,7 +63,8 @@ export interface HallLink {
 export interface ConnectionDeps {
   /** The WebSocket address of a hall. */
   urlForHall: (hall: number) => string;
-  language: LanguageCode;
+  /** Read at join time so a language change never requires disconnecting. */
+  language: () => LanguageCode;
   store: Store<HallState>;
   tracks: TrackSet;
   ritualClock: RitualClock;
@@ -149,7 +150,7 @@ export class HallConnection implements HallLink {
     const resumeToken = saved?.hall === this.hall ? saved.token : undefined;
     this.send({
       type: 'join',
-      lang: this.deps.language,
+      lang: this.deps.language(),
       ...(this.options.nickname === undefined ? {} : { nickname: this.options.nickname }),
       ...(resumeToken === undefined ? {} : { resumeToken }),
     });

@@ -85,9 +85,14 @@ describe('frameHall', () => {
 });
 
 describe('hallPoints', () => {
-  it('covers the floor corners, the back wall and its top', () => {
+  it('includes the front cutaway edges in the camera fit', () => {
     const points = hallPoints(layout);
-    expect(points).toHaveLength(8);
+    const frontEdge = new Vector3(
+      layout.bounds.maxX + BLOCKOUT.wallThickness,
+      BLOCKOUT.sideWallHeight,
+      layout.bounds.maxZ,
+    );
+    expect(Math.min(...points.map((point) => point.distanceTo(frontEdge)))).toBeCloseTo(0);
     expect(Math.max(...points.map((p) => p.y))).toBe(BLOCKOUT.wallHeight);
     expect(Math.min(...points.map((p) => p.z))).toBeLessThan(layout.bounds.minZ);
   });

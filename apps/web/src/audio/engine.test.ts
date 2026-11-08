@@ -9,7 +9,13 @@ class FakeNode {
   }
 }
 class FakeGain extends FakeNode {
-  gain = { value: 1 };
+  gain = {
+    value: 1,
+    cancelScheduledValues: vi.fn(),
+    setTargetAtTime: (target: number) => {
+      this.gain.value = target;
+    },
+  };
 }
 class FakeSource extends FakeNode {
   buffer: unknown = null;
@@ -77,6 +83,7 @@ function setup(options: { chantingArrives?: Promise<void> } = {}) {
 }
 
 const settle = () => vi.advanceTimersByTimeAsync(0);
+const loadRecitation = async () => ({ duration: RECORDING_SEC }) as AudioBuffer;
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -146,17 +153,36 @@ describe('sound effects', () => {
 });
 
 describe('personal chanting', () => {
-  it('starts and stops on request, looping from the beginning', async () => {
+  it('plays once, ducks the piano and restores it when the recording ends', async () => {
+    const { context, engine, playing, ambientGain, chantingGain } = setup();
+    engine.unlock();
+    await engine.playPersonalChant('heart-sutra', loadRecitation);
+    expect(engine.getSnapshot().personalChant).toEqual({ id: 'heart-sutra', state: 'playing' });
+    const [source] = playing(chantingGain);
+    expect(source).toMatchObject({ loop: false, started: { when: 0, offset: 0 } });
+    expect(context.gains[ambientGain]!.gain.value).toBeLessThan(0.35);
+    source!.onended?.();
+    expect(engine.getSnapshot().personalChant).toBeNull();
+    expect(context.gains[ambientGain]!.gain.value).toBe(0.35);
+  });
+
+  it('ignores a download that finishes after the visitor presses Stop', async () => {
     const { engine, playing, chantingGain } = setup();
     engine.unlock();
-    await settle();
-    engine.togglePersonalChanting();
-    await settle();
-    expect(engine.personalChanting).toBe(true);
-    expect(playing(chantingGain)[0]).toMatchObject({ loop: true, started: { when: 0, offset: 0 } });
-    engine.togglePersonalChanting();
-    expect(engine.personalChanting).toBe(false);
-    expect(playing(chantingGain)[0]!.stopped).toBe(true);
+    const loading = engine.playPersonalChant('heart-sutra', loadRecitation);
+    expect(engine.getSnapshot().personalChant?.state).toBe('loading');
+    engine.stopPersonalChant();
+    await loading;
+    expect(engine.getSnapshot().personalChant).toBeNull();
+    expect(playing(chantingGain)).toHaveLength(0);
+  });
+
+  it('reports an unavailable recording without substituting audio', async () => {
+    const { engine, playing, chantingGain } = setup();
+    engine.unlock();
+    await engine.playPersonalChant('heart-sutra', () => Promise.reject(new Error('missing')));
+    expect(engine.getSnapshot().personalChant).toEqual({ id: 'heart-sutra', state: 'failed' });
+    expect(playing(chantingGain)).toHaveLength(0);
   });
 });
 
@@ -211,7 +237,7 @@ describe('communal chanting', () => {
     const { engine, playing, chantingGain } = setup();
     engine.unlock();
     await settle();
-    engine.togglePersonalChanting();
+    await engine.playPersonalChant('heart-sutra', loadRecitation);
     await settle();
     engine.scheduleCommunal(SESSION, 0);
     await vi.advanceTimersByTimeAsync(600_000);
@@ -221,7 +247,7 @@ describe('communal chanting', () => {
     await vi.advanceTimersByTimeAsync(SESSION.durationMs);
     expect(communal!.stopped).toBe(true);
     expect(engine.communalChanting).toBe(false);
-    expect(engine.personalChanting).toBe(false);
+    expect(engine.getSnapshot().personalChant).toBeNull();
   });
 
   it('does not let the visitor start their own chanting during the session', async () => {
@@ -230,10 +256,10 @@ describe('communal chanting', () => {
     engine.unlock();
     engine.scheduleCommunal(SESSION, 0);
     await settle();
-    engine.togglePersonalChanting();
+    await engine.playPersonalChant('heart-sutra', loadRecitation);
     await settle();
     expect(playing(chantingGain)).toHaveLength(1);
-    expect(engine.personalChanting).toBe(false);
+    expect(engine.getSnapshot().personalChant).toBeNull();
   });
 
   it('ignores the same session announced twice', async () => {

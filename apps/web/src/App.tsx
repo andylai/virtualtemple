@@ -1,7 +1,7 @@
 import { flagshipManifest } from '@temple/shared/flagship';
 import type { Point } from '@temple/shared';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { useLanguage, useT } from './i18n/I18nProvider';
+import { useT } from './i18n/I18nProvider';
 import { reportProblem } from './net/reportProblem';
 import { useProblemReports } from './net/useProblemReports';
 import { createHallClient, requestedHallFromAddress, type HallClient } from './net/hallClient';
@@ -23,7 +23,6 @@ import { EnterOverlay } from './ui/EnterOverlay';
 import { FpsCounter } from './ui/FpsCounter';
 import { HallStatus } from './ui/HallStatus';
 import { OfflineBanner, PictureLostBanner } from './ui/ConnectionBanners';
-import { Hud } from './ui/Hud';
 import { Overlay } from './ui/Overlay';
 import { SpecialDayBanner } from './ui/SpecialDayBanner';
 import { Notices } from './ui/Notices';
@@ -50,10 +49,9 @@ function HallOverlays({
 }) {
   return (
     <>
-      <div className="top">
+      <div className={state.status === 'joined' ? 'top top-joined' : 'top'}>
         <PictureLostBanner lost={pictureLost} />
         <OfflineBanner />
-        <Hud state={state} />
         <SpecialDayBanner state={state} />
         <ChantingBanner state={state} />
         <Notices
@@ -193,10 +191,9 @@ function HallView({ client }: { client: HallClient }) {
 /** The app shell: checks the browser can draw 3D, then shows the hall. */
 export function App() {
   const t = useT();
-  const language = useLanguage();
   const hasWebGl = useMemo(isWebGlAvailable, []);
   const [client] = useState(() =>
-    createHallClient(language, requestedHallFromAddress(window.location.search)),
+    createHallClient(requestedHallFromAddress(window.location.search)),
   );
   useEffect(() => {
     if (!hasWebGl) {

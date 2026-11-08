@@ -1,3 +1,4 @@
+import { HallIcon } from './HallIcon';
 import { DEFAULT_CONFIG } from '@temple/shared';
 import { useEffect, useState } from 'react';
 import { useT } from '../i18n/I18nProvider';
@@ -15,12 +16,16 @@ export function MeditateButton({ meditation }: { meditation: Meditation }) {
   return (
     <>
       <button type="button" disabled={meditation.session !== null} onClick={() => setOpen(true)}>
+        <HallIcon name="sit" />
         {t('meditation.button')}
       </button>
       {open && (
         <Overlay title={t('meditation.title')} onClose={() => setOpen(false)}>
-          <p>{t('meditation.choose')}</p>
-          <ul className="hall-list">
+          <ol className="meditation-guide">
+            <li>{t('meditation.guide.relax')}</li>
+            <li>{t('meditation.guide.duration')}</li>
+          </ol>
+          <ul className="hall-list meditation-options">
             {DEFAULT_CONFIG.meditation.options.map((minutes) => (
               <li key={minutes}>
                 <button

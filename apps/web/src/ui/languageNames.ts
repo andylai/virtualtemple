@@ -4,5 +4,5 @@ import type { LanguageCode } from '@temple/shared';
 export const LANGUAGE_NAMES: Readonly<Record<LanguageCode, string>> = {
   en: 'English',
   ms: 'Bahasa Melayu',
-  zh: '中文',
+  zh: '简体中文',
 };

@@ -21,7 +21,7 @@ Both are configured in [apps/worker/wrangler.jsonc](../../apps/worker/wrangler.j
 3. Choose the domain and add it to the account (it must be a Cloudflare zone for `custom_domain` routes). Turn on **Always Use HTTPS** and HSTS for the zone (the site's headers also send `Strict-Transport-Security`).
 4. `npx wrangler login` on the machine that deploys, or create an API token limited to Workers on this account for CI. Never put the token in the repository.
 5. Replace every `CHANGE-ME` in `apps/worker/wrangler.jsonc`: the staging `workers.dev` address (it contains your account's subdomain) and, for production, the domain in `routes` and `ALLOWED_ORIGINS`.
-6. Fill in the contact address in `apps/web/public/privacy.html` and `terms.html`.
+6. Add the privacy contact address to the combined pages, `apps/web/public/terms.html` and `terms-zh.html`.
 
 ## 3. Deploying
 
@@ -116,12 +116,12 @@ Needs a person or a decision (blocks the public launch):
 - [ ] Cloudflare account on the Workers Paid plan, spend alert set (section 2). **Owner: you.**
 - [ ] Domain chosen and added; `CHANGE-ME` replaced; staging deployed.
 - [ ] Staging load test recorded in [load-test.md](load-test.md), with the target size decided (O-7), the numbers in spec 4.3 confirmed or changed, and the cost compared with the bill.
-- [ ] Acceptance criteria 1 to 10 (spec 14) walked through on staging, including two phones and a desktop together, iOS Safari audio, chanting at the scheduled time, and a model with Draco or KTX2 compression under the policy.
+- [ ] Acceptance criteria 1 to 10 (spec 14) walked through on staging, including two phones and a desktop together, iOS Safari audio, confirmation that the flagship has no scheduled chanting and the chant readers open, and a model with Draco or KTX2 compression under the policy.
 - [ ] **Religious advisor sign-off (O-5)** on rituals, wording and the chanting; and the tradition decision (O-2) reflected in the art and audio.
 - [ ] **Donation decision (O-3):** Phase 1 has no payments. If that stays, nothing to do; if not, a legal review comes first.
 - [ ] Languages (O-1): native review of the Malay and Chinese drafts, then list them in the manifest.
 - [ ] Privacy note and terms reviewed by a lawyer ([privacy-check.md](privacy-check.md)); draft notices removed; contact address added. The production deploy refuses until this is done.
-- [ ] **Restore test values before launch:** the manifest's chanting times (currently includes a test time), `lamp.durationSec` (spec says 300; the code default is 30), and any other values changed for testing. Check `git log -p manifests/flagship.json packages/shared/src/config.ts`.
+- [ ] **Restore test values before launch:** `lamp.durationSec` (spec says 300; the code default is 30), and any other values changed for testing. Check `git log -p manifests/flagship.json packages/shared/src/config.ts`.
 - [ ] Share preview image (needs a designed picture and the real address; `og:image` is not set yet).
 - [ ] A person on call for the first days, and the runbook read once by them.
 - [ ] The risk of the 1,000 places being filled by an abuser (section 4) accepted or mitigated.

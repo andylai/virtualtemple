@@ -1,3 +1,4 @@
+import { HallIcon } from './HallIcon';
 import { RITUALS, type RitualId } from '@temple/shared';
 import { flagshipManifest } from '@temple/shared/flagship';
 import type { ReactNode } from 'react';
@@ -17,22 +18,26 @@ interface RitualBarProps {
 export function RitualBar({ onStart, onStop, canStop, children }: RitualBarProps) {
   const t = useT();
   return (
-    <div className="ritual-bar">
-      {flagshipManifest.rituals
-        .filter((id) => RITUALS[id].quick)
-        .map((id) => (
-          <button
-            key={id}
-            type="button"
-            aria-keyshortcuts={RITUALS[id].keys.join(' ')}
-            onClick={() => onStart(id)}
-          >
-            {t(RITUAL_BUTTON_KEYS[id])}
-          </button>
-        ))}
-      {children}
+    <div className="ritual-controls">
+      <div className="ritual-bar">
+        {flagshipManifest.rituals
+          .filter((id) => RITUALS[id].quick)
+          .map((id) => (
+            <button
+              key={id}
+              type="button"
+              aria-keyshortcuts={RITUALS[id].keys.join(' ')}
+              onClick={() => onStart(id)}
+            >
+              <HallIcon name={id} />
+              {t(RITUAL_BUTTON_KEYS[id])}
+            </button>
+          ))}
+        {children}
+      </div>
       {canStop && (
         <button type="button" className="stop" onClick={onStop}>
+          <HallIcon name="stop" />
           {t('ritual.stop')}
         </button>
       )}

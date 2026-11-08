@@ -1,16 +1,20 @@
-import { DEFAULT_CONFIG, type LanguageCode } from '@temple/shared';
+import { HallIcon } from './HallIcon';
+import { DEFAULT_CONFIG } from '@temple/shared';
 import { flagshipManifest } from '@temple/shared/flagship';
 import { useState, useSyncExternalStore } from 'react';
 import type { AudioEngine, EngineSnapshot, Layer } from '../audio/engine';
-import { useLanguage, useT } from '../i18n/I18nProvider';
+import { useT } from '../i18n/I18nProvider';
 import type { MessageKey } from '../i18n/en';
-import { availableLanguages } from '../i18n/translate';
 import { effectiveReduceMotion, preferencesStore } from '../prefs/preferences';
 import { useDeviceReducesMotion, usePreferences } from '../prefs/usePreferences';
-import { LANGUAGE_NAMES } from './languageNames';
+import { LanguageSelect } from './LanguageSelect';
 import { Overlay } from './Overlay';
 
 const PERCENT = 100;
+
+const HAS_GROUP_CHANTING =
+  flagshipManifest.chantingSchedule.length > 0 ||
+  flagshipManifest.specialDays.some(({ extraChanting }) => extraChanting.length > 0);
 
 const LAYERS: readonly { layer: Layer; label: MessageKey }[] = [
   { layer: 'ambient', label: 'sound.ambient' },
@@ -18,33 +22,25 @@ const LAYERS: readonly { layer: Layer; label: MessageKey }[] = [
   { layer: 'sfx', label: 'sound.effects' },
 ];
 
-/** The three volume sliders and the visitor's own chanting (FR-23, FR-24). */
+/** The sliders let visitors balance the sound layers available at launch. */
 function SoundControls({ engine, sound }: { engine: AudioEngine; sound: EngineSnapshot }) {
   const t = useT();
   return (
     <>
-      {LAYERS.map(({ layer, label }) => (
-        <label key={layer} className="slider">
-          <span>{t(label)}</span>
-          <input
-            type="range"
-            min={0}
-            max={PERCENT}
-            value={Math.round(sound.volumes[layer] * PERCENT)}
-            onChange={(event) => engine.setVolume(layer, Number(event.target.value) / PERCENT)}
-          />
-        </label>
-      ))}
-      <p>
-        <button
-          type="button"
-          disabled={sound.communalChanting}
-          onClick={() => engine.togglePersonalChanting()}
-        >
-          {sound.personalChanting ? t('sound.stopChanting') : t('sound.playChanting')}
-        </button>
-      </p>
-      {sound.communalChanting && <p>{t('sound.communalNote')}</p>}
+      {LAYERS.filter(({ layer }) => layer !== 'chanting' || HAS_GROUP_CHANTING).map(
+        ({ layer, label }) => (
+          <label key={layer} className="slider">
+            <span>{t(label)}</span>
+            <input
+              type="range"
+              min={0}
+              max={PERCENT}
+              value={Math.round(sound.volumes[layer] * PERCENT)}
+              onChange={(event) => engine.setVolume(layer, Number(event.target.value) / PERCENT)}
+            />
+          </label>
+        ),
+      )}
     </>
   );
 }
@@ -52,10 +48,8 @@ function SoundControls({ engine, sound }: { engine: AudioEngine; sound: EngineSn
 /** Sound in the background, reduced motion, and language (FR-25, FR-36). */
 function PreferenceControls() {
   const t = useT();
-  const language = useLanguage();
   const preferences = usePreferences();
   const deviceReducesMotion = useDeviceReducesMotion();
-  const languages = availableLanguages(flagshipManifest.languages);
   return (
     <>
       <label className="check">
@@ -74,23 +68,7 @@ function PreferenceControls() {
         />
         <span>{t('settings.reduceMotion')}</span>
       </label>
-      {languages.length > 1 && (
-        <label className="slider">
-          <span>{t('settings.language')}</span>
-          <select
-            value={language}
-            onChange={(event) =>
-              preferencesStore().update({ language: event.target.value as LanguageCode })
-            }
-          >
-            {languages.map((code) => (
-              <option key={code} value={code}>
-                {LANGUAGE_NAMES[code]}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      <LanguageSelect />
     </>
   );
 }
@@ -111,6 +89,7 @@ export function SettingsPanel({ engine }: { engine: AudioEngine }) {
   return (
     <>
       <button type="button" onClick={() => setOpen(true)}>
+        <HallIcon name="settings" />
         {t('settings.button')}
       </button>
       {open && (

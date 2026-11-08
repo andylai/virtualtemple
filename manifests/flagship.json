@@ -1,12 +1,13 @@
 {
   "slug": "flagship",
   "name": {
-    "en": "Flagship Temple (placeholder)"
+    "en": "Still Here",
+    "zh": "安心"
   },
   "tradition": "undecided",
-  "languages": ["en"],
+  "languages": ["en", "zh"],
   "timezone": "Asia/Kuala_Lumpur",
-  "chantingSchedule": ["05:00", "22:33"],
+  "chantingSchedule": [],
   "specialDays": [],
   "hall": {
     "template": "blockout",
@@ -31,74 +32,74 @@
     "cushions": [
       {
         "id": "cushion-1",
-        "x": -4.5,
-        "z": 0,
+        "x": -4.1,
+        "z": -1.13,
         "facing": 0
       },
       {
         "id": "cushion-2",
-        "x": -1.5,
-        "z": 0,
+        "x": -2.82,
+        "z": -1.13,
         "facing": 0
       },
       {
         "id": "cushion-3",
-        "x": 1.5,
-        "z": 0,
+        "x": 2.53,
+        "z": -1.13,
         "facing": 0
       },
       {
         "id": "cushion-4",
-        "x": 4.5,
-        "z": 0,
+        "x": 3.8,
+        "z": -1.13,
         "facing": 0
       },
       {
         "id": "cushion-5",
-        "x": -4.5,
-        "z": 3,
+        "x": -4.14,
+        "z": 1.88,
         "facing": 0
       },
       {
         "id": "cushion-6",
-        "x": -1.5,
-        "z": 3,
+        "x": -2.82,
+        "z": 1.88,
         "facing": 0
       },
       {
         "id": "cushion-7",
-        "x": 1.5,
-        "z": 3,
+        "x": 2.58,
+        "z": 1.88,
         "facing": 0
       },
       {
         "id": "cushion-8",
-        "x": 4.5,
-        "z": 3,
+        "x": 3.88,
+        "z": 1.88,
         "facing": 0
       },
       {
         "id": "cushion-9",
-        "x": -4.5,
-        "z": 6,
+        "x": -4.16,
+        "z": 5.02,
         "facing": 0
       },
       {
         "id": "cushion-10",
-        "x": -1.5,
-        "z": 6,
+        "x": -2.83,
+        "z": 5.02,
         "facing": 0
       },
       {
         "id": "cushion-11",
-        "x": 1.5,
-        "z": 6,
+        "x": 2.64,
+        "z": 5.02,
         "facing": 0
       },
       {
         "id": "cushion-12",
-        "x": 4.5,
-        "z": 6,
+        "x": 3.95,
+        "z": 5.02,
         "facing": 0
       }
     ],
@@ -155,6 +156,19 @@
   "audio": {
     "ambient": "audio/ambient.opus",
     "chanting": "audio/chanting.opus",
+    "personalChants": [
+      {
+        "id": "om-mani-padme-hum",
+        "title": { "en": "Om Mani Padme Hum", "zh": "六字大明咒" },
+        "recording": null
+      },
+      { "id": "heart-sutra", "title": { "en": "Heart Sutra", "zh": "心经" }, "recording": null },
+      {
+        "id": "great-compassion-mantra",
+        "title": { "en": "Great Compassion Mantra", "zh": "大悲咒" },
+        "recording": null
+      }
+    ],
     "sfx": {
       "bell": "audio/bell.opus",
       "lamp": "audio/lamp.opus"
@@ -168,73 +182,85 @@
       {
         "id": "calm",
         "text": {
-          "en": "Calm"
+          "en": "Calm",
+          "zh": "宁静"
         }
       },
       {
         "id": "gentle",
         "text": {
-          "en": "Gentle"
+          "en": "Gentle",
+          "zh": "温柔"
         }
       },
       {
         "id": "quiet",
         "text": {
-          "en": "Quiet"
+          "en": "Quiet",
+          "zh": "安静"
         }
       },
       {
         "id": "bright",
         "text": {
-          "en": "Bright"
+          "en": "Bright",
+          "zh": "明朗"
         }
       },
       {
         "id": "kind",
         "text": {
-          "en": "Kind"
+          "en": "Kind",
+          "zh": "慈和"
         }
       },
       {
         "id": "still",
         "text": {
-          "en": "Still"
+          "en": "Still",
+          "zh": "静谧"
         }
       },
       {
         "id": "soft",
         "text": {
-          "en": "Soft"
+          "en": "Soft",
+          "zh": "轻柔"
         }
       },
       {
         "id": "steady",
         "text": {
-          "en": "Steady"
+          "en": "Steady",
+          "zh": "安稳"
         }
       },
       {
         "id": "warm",
         "text": {
-          "en": "Warm"
+          "en": "Warm",
+          "zh": "温暖"
         }
       },
       {
         "id": "clear",
         "text": {
-          "en": "Clear"
+          "en": "Clear",
+          "zh": "清澈"
         }
       },
       {
         "id": "humble",
         "text": {
-          "en": "Humble"
+          "en": "Humble",
+          "zh": "谦和"
         }
       },
       {
         "id": "patient",
         "text": {
-          "en": "Patient"
+          "en": "Patient",
+          "zh": "从容"
         }
       }
     ],
@@ -242,73 +268,85 @@
       {
         "id": "lotus",
         "text": {
-          "en": "Lotus"
+          "en": "Lotus",
+          "zh": "莲花"
         }
       },
       {
         "id": "tree",
         "text": {
-          "en": "Tree"
+          "en": "Tree",
+          "zh": "树木"
         }
       },
       {
         "id": "mist",
         "text": {
-          "en": "Mist"
+          "en": "Mist",
+          "zh": "薄雾"
         }
       },
       {
         "id": "stream",
         "text": {
-          "en": "Stream"
+          "en": "Stream",
+          "zh": "溪流"
         }
       },
       {
         "id": "stone",
         "text": {
-          "en": "Stone"
+          "en": "Stone",
+          "zh": "石头"
         }
       },
       {
         "id": "cloud",
         "text": {
-          "en": "Cloud"
+          "en": "Cloud",
+          "zh": "云朵"
         }
       },
       {
         "id": "moon",
         "text": {
-          "en": "Moon"
+          "en": "Moon",
+          "zh": "月亮"
         }
       },
       {
         "id": "river",
         "text": {
-          "en": "River"
+          "en": "River",
+          "zh": "河流"
         }
       },
       {
         "id": "pine",
         "text": {
-          "en": "Pine"
+          "en": "Pine",
+          "zh": "松树"
         }
       },
       {
         "id": "lantern",
         "text": {
-          "en": "Lantern"
+          "en": "Lantern",
+          "zh": "灯笼"
         }
       },
       {
         "id": "bamboo",
         "text": {
-          "en": "Bamboo"
+          "en": "Bamboo",
+          "zh": "竹子"
         }
       },
       {
         "id": "dawn",
         "text": {
-          "en": "Dawn"
+          "en": "Dawn",
+          "zh": "晨曦"
         }
       }
     ]

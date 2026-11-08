@@ -24,6 +24,13 @@ export function availableLanguages(
 /** The language used when the visitor's language has no translation yet. */
 export const FALLBACK_LANGUAGE: LanguageCode = 'en';
 
+/** The Chinese catalog uses Simplified characters, so browsers can select the right voice and fonts. */
+export const HTML_LANGUAGE_TAGS: Readonly<Record<LanguageCode, string>> = {
+  en: 'en',
+  ms: 'ms',
+  zh: 'zh-Hans',
+};
+
 /** Values filled into `{name}` markers. */
 export type MessageParams = Readonly<Record<string, string | number>>;
 
@@ -66,4 +73,15 @@ export function pickLanguage(
     }
   }
   return FALLBACK_LANGUAGE;
+}
+
+/** An explicit choice takes priority over the browser, as long as the temple still offers it. */
+export function resolveLanguage(
+  preferred: LanguageCode | null,
+  browserTags: readonly string[],
+): LanguageCode {
+  const available = availableLanguages(flagshipManifest.languages);
+  return preferred !== null && available.includes(preferred)
+    ? preferred
+    : pickLanguage(browserTags, available);
 }

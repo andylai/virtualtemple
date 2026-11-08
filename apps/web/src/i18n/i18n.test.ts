@@ -2,7 +2,13 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { en } from './en';
-import { CATALOGS, availableLanguages, pickLanguage, translate } from './translate';
+import {
+  CATALOGS,
+  availableLanguages,
+  pickLanguage,
+  resolveLanguage,
+  translate,
+} from './translate';
 
 const SRC_DIR = join(import.meta.dirname, '..');
 
@@ -86,4 +92,11 @@ describe('pickLanguage', () => {
     expect(pickLanguage(['fr-FR'], ['en'])).toBe('en');
     expect(pickLanguage([], ['en'])).toBe('en');
   });
+});
+
+it('uses the browser language until an offered language is chosen explicitly', () => {
+  expect(resolveLanguage(null, ['zh-MY', 'en'])).toBe('zh');
+  expect(resolveLanguage('en', ['zh-MY'])).toBe('en');
+  expect(resolveLanguage('zh', ['en'])).toBe('zh');
+  expect(resolveLanguage('ms', ['ms-MY', 'en'])).toBe('en');
 });

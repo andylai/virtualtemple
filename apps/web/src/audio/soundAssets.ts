@@ -5,7 +5,7 @@ import { synthAmbient, synthBell, synthChant, synthLampChime } from './synth';
 
 /** Placeholder sounds are made at this sample rate: low, to keep their memory small. */
 const SYNTH_RATE = 22050;
-const AMBIENT_SECONDS = 12;
+const AMBIENT_SECONDS = 48;
 /** A multiple of 4, so the chant repeats seamlessly. */
 const CHANT_SECONDS = 20;
 
@@ -40,6 +40,19 @@ function synthesise(name: SoundName): Float32Array<ArrayBuffer> {
   }
 }
 
+/** A named personal recitation must decode successfully. A substitute hum would mislabel it. */
+export async function loadRecording(
+  context: AudioContext,
+  url: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<AudioBuffer> {
+  const response = await fetchFn(url);
+  if (!response.ok || !(response.headers.get('content-type') ?? '').startsWith('audio')) {
+    throw new Error('Recording unavailable');
+  }
+  return context.decodeAudioData(await response.arrayBuffer());
+}
+
 /**
  * Gets a sound as a buffer: the recording if there is one and it can be read, otherwise a
  * placeholder made in code. A missing file is normal for now, since the real recordings do not exist yet.
@@ -56,11 +69,7 @@ export async function loadSoundBuffer(
   fetchFn: typeof fetch = fetch,
 ): Promise<AudioBuffer> {
   try {
-    const response = await fetchFn(url);
-    // A development server answers a missing file with its home page, which is not audio.
-    if (response.ok && (response.headers.get('content-type') ?? '').startsWith('audio')) {
-      return await context.decodeAudioData(await response.arrayBuffer());
-    }
+    return await loadRecording(context, url, fetchFn);
   } catch {
     // Fall through to the placeholder.
   }

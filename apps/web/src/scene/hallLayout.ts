@@ -6,12 +6,13 @@ type Hall = TempleManifest['hall'];
 export const BLOCKOUT = {
   floorThickness: 0.1,
   wallHeight: 3.5,
+  sideWallHeight: 1.9,
   wallThickness: 0.3,
   altarDepth: 2,
   altarHeight: 1.1,
   altarWidthShare: 0.4,
   statueWidth: 1,
-  statueHeight: 2.2,
+  statueHeight: 2.4,
   cushionRadius: 0.4,
   cushionHeight: 0.15,
   lampSize: 0.18,
@@ -128,7 +129,8 @@ function box(center: Point, y: number, width: number, height: number, depth: num
  */
 export function buildHallLayout(hall: Hall): HallLayout {
   const bounds = boundsOf(hall.walkableArea);
-  const { wallHeight, wallThickness, altarDepth, altarHeight, altarWidthShare } = BLOCKOUT;
+  const { wallHeight, sideWallHeight, wallThickness, altarDepth, altarHeight, altarWidthShare } =
+    BLOCKOUT;
   const centerX = (bounds.minX + bounds.maxX) / 2;
   const width = bounds.maxX - bounds.minX;
   const backZ = bounds.minZ - altarDepth;
@@ -148,16 +150,16 @@ export function buildHallLayout(hall: Hall): HallLayout {
       ),
       box(
         { x: bounds.minX - wallThickness / 2, z: sideZ },
-        wallY,
+        sideWallHeight / 2,
         wallThickness,
-        wallHeight,
+        sideWallHeight,
         sideDepth,
       ),
       box(
         { x: bounds.maxX + wallThickness / 2, z: sideZ },
-        wallY,
+        sideWallHeight / 2,
         wallThickness,
-        wallHeight,
+        sideWallHeight,
         sideDepth,
       ),
     ],

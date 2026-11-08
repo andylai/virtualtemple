@@ -7,63 +7,63 @@
 const TAU = 2 * Math.PI;
 const PEAK = 0.8;
 
-/** A small repeatable random number generator (mulberry32), so a sound is the same every time. */
-function seededRandom(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/** Scales a sound so its loudest sample is `PEAK`. */
-function normalise(samples: Float32Array<ArrayBuffer>): Float32Array<ArrayBuffer> {
+/** Scales a sound to its intended peak without changing the envelope. */
+function normalise(samples: Float32Array<ArrayBuffer>, peak = PEAK): Float32Array<ArrayBuffer> {
   let loudest = 0;
   for (const sample of samples) {
     loudest = Math.max(loudest, Math.abs(sample));
   }
-  const gain = loudest === 0 ? 1 : PEAK / loudest;
+  const gain = loudest === 0 ? 1 : peak / loudest;
   return samples.map((sample) => sample * gain);
 }
 
-/**
- * Makes a sound repeat without a click: the end is blended into the start, and the sound gets
- * shorter by the length of the blend.
- */
-function makeLoop(
-  samples: Float32Array<ArrayBuffer>,
-  fadeSamples: number,
-): Float32Array<ArrayBuffer> {
-  const length = samples.length - fadeSamples;
-  const loop = samples.slice(0, length);
-  for (let i = 0; i < fadeSamples; i += 1) {
-    const share = i / fadeSamples;
-    loop[i] = (samples[i] as number) * share + (samples[length + i] as number) * (1 - share);
-  }
-  return loop;
+/** Keep the background below voices and ritual bells even for saved volume settings. */
+const AMBIENT_PEAK = 0.16;
+/** Open major voicings let a few gentle notes ring without a sustained drone. */
+const AMBIENT_PHRASES = [
+  [50, 57, 66, 64], // D major
+  [43, 55, 59, 62], // G major
+  [50, 57, 66, 69],
+  [43, 55, 59, 57],
+  [50, 54, 57, 64],
+  [43, 55, 59, 62],
+  [45, 57, 64, 61], // A major resolves back to D.
+  [50, 57, 66, 62],
+] as const;
+const NOTE_OFFSETS = [0.04, 0.23, 0.42, 0.62] as const;
+const NOTE_SPAN = 0.35;
+const SOFT_ATTACK_SHARE = 0.055;
+const MIDI_A = 69;
+const A_HZ = 440;
+const SEMITONES_PER_OCTAVE = 12;
+
+/** Round off the strike and let the higher partials decay faster, like a softly played piano. */
+function softPiano(phase: number, progress: number): number {
+  const attack = Math.sin((Math.PI / 2) * Math.min(1, progress / SOFT_ATTACK_SHARE)) ** 2;
+  const tail = (1 - progress) ** 2 * Math.exp(-2 * progress);
+  const colour = Math.exp(-6 * progress);
+  const overtones = 0.22 * Math.sin(2 * phase) + 0.075 * Math.sin(3.01 * phase);
+  return attack * tail * (Math.sin(phase) + colour * overtones);
 }
 
-/**
- * Wind in trees: soft low-pass noise that swells and fades slowly. It repeats seamlessly.
- *
- * @param sampleRate - Samples per second.
- * @param seconds - Length of the repeating part.
- */
+/** A quiet, original piano phrase with space between phrases and silence at the loop seam. */
 export function synthAmbient(sampleRate: number, seconds: number): Float32Array<ArrayBuffer> {
-  const fade = Math.floor(sampleRate * 1);
-  const total = Math.floor(sampleRate * seconds) + fade;
-  const random = seededRandom(7);
-  const noise = new Float32Array(total);
-  let low = 0;
-  for (let i = 0; i < total; i += 1) {
-    low += 0.04 * (random() * 2 - 1 - low);
-    const swell = 0.65 + 0.35 * Math.sin((TAU * i) / (sampleRate * 7));
-    noise[i] = low * swell;
-  }
-  return normalise(makeLoop(noise, fade));
+  const length = Math.floor(sampleRate * seconds);
+  const samples = new Float32Array(length);
+  const phraseLength = length / AMBIENT_PHRASES.length;
+  const noteLength = Math.floor(phraseLength * NOTE_SPAN);
+  AMBIENT_PHRASES.forEach((phrase, bar) => {
+    phrase.forEach((pitch, note) => {
+      const start = Math.floor((bar + NOTE_OFFSETS[note]!) * phraseLength);
+      const frequency = A_HZ * 2 ** ((pitch - MIDI_A) / SEMITONES_PER_OCTAVE);
+      const step = (TAU * frequency) / sampleRate;
+      for (let i = 0; i < noteLength; i += 1) {
+        const index = start + i;
+        samples[index] = samples[index]! + softPiano(step * i, i / noteLength);
+      }
+    });
+  });
+  return normalise(samples, AMBIENT_PEAK);
 }
 
 /**

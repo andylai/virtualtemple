@@ -2,8 +2,7 @@ import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'r
 import type { LanguageCode } from '@temple/shared';
 import type { MessageKey } from './en';
 import { usePreferences } from '../prefs/usePreferences';
-import { flagshipManifest } from '@temple/shared/flagship';
-import { availableLanguages, pickLanguage, translate, type MessageParams } from './translate';
+import { HTML_LANGUAGE_TAGS, resolveLanguage, translate, type MessageParams } from './translate';
 
 type Translator = (key: MessageKey, params?: MessageParams) => string;
 
@@ -18,14 +17,12 @@ const I18nContext = createContext<I18nValue | null>(null);
 export function I18nProvider({ children }: { children: ReactNode }) {
   const preferred = usePreferences().language;
   const value = useMemo(() => {
-    const available = availableLanguages(flagshipManifest.languages);
-    const chosen = preferred !== null && available.includes(preferred) ? preferred : null;
-    const language = chosen ?? pickLanguage(navigator.languages, available);
+    const language = resolveLanguage(preferred, navigator.languages);
     const t: Translator = (key, params) => translate(language, key, params);
     return { language, t };
   }, [preferred]);
   useEffect(() => {
-    document.documentElement.lang = value.language;
+    document.documentElement.lang = HTML_LANGUAGE_TAGS[value.language];
     document.title = value.t('app.title');
   }, [value]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

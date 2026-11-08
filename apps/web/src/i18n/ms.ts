@@ -5,7 +5,9 @@ import type { Catalog } from './en';
  * religious advisor: it stays off until the manifest lists `ms` in `languages` (see plan section 20).
  */
 export const ms = {
-  'app.title': 'Kuil Maya',
+  'app.title': 'Still Here',
+  'app.wordmark': 'Still · Here',
+  'enter.tagline': 'Ruang tenang untuk duduk, melafazkan sutra dan bernafas.',
   'loading.preparing': 'Menyediakan dewan…',
   'loading.progress': 'Memuatkan {percent}%',
   'enter.button': 'Masuk',
@@ -31,6 +33,7 @@ export const ms = {
   'toast.bow': '{name} sedang tunduk hormat',
   'toast.lamp': '{name} menyalakan pelita',
   'toast.sit': '{name} sedang bermeditasi',
+  'menu.more': 'Lagi',
   'settings.button': 'Tetapan',
   'settings.title': 'Tetapan',
   'settings.backgroundPlay': 'Teruskan bunyi apabila tab ini berada di latar belakang',
@@ -39,7 +42,10 @@ export const ms = {
   'settings.forget': 'Lupakan nama dan tetapan saya',
   'meditation.button': 'Bermeditasi',
   'meditation.title': 'Bermeditasi',
-  'meditation.choose': 'Berapa lama anda mahu duduk?',
+  'meditation.guide.relax':
+    'Tenangkan fikiran dan badan. Pejamkan mata perlahan-lahan selepas duduk.',
+  'meditation.guide.duration':
+    'Apabila sudah bersedia, pilih tempoh meditasi. Loceng akan berbunyi apabila sesi tamat.',
   'meditation.minutes': '{n} minit',
   'meditation.walking': 'Berjalan ke kusyen anda…',
   'meditation.left': 'Bermeditasi: {time} lagi',
@@ -49,20 +55,31 @@ export const ms = {
   'about.title': 'Tentang kuil ini',
   'about.privacy':
     'Tiada akaun diperlukan. Nama dan tetapan anda hanya disimpan dalam pelayar ini.',
-  'about.privacyLink': 'Nota privasi',
-  'about.termsLink': 'Syarat penggunaan',
+  'about.termsLink': 'Terma dan Privasi',
+  'terms.backToAbout': 'Kembali ke Perihal',
+  'terms.loading': 'Memuatkan syarat penggunaan…',
+  'terms.unavailable': 'Syarat penggunaan tidak dapat dimuatkan.',
   'about.credits': 'Penghargaan',
   'about.noCredits': 'Belum ada bunyi, imej atau model pihak ketiga yang digunakan.',
   'exit.button': 'Keluar',
   'exit.title': 'Adakah anda berehat dengan baik?',
   'exit.body': 'Semoga ketenangan yang anda temui di sini kekal bersama anda.',
   'exit.stayAgain': 'Tinggal lagi',
-  'sound.ambient': 'Bunyi latar',
+  'sound.ambient': 'Muzik latar',
   'sound.chanting': 'Alunan bacaan',
   'sound.effects': 'Kesan bunyi',
   'sound.playChanting': 'Mainkan alunan',
   'sound.stopChanting': 'Hentikan alunan',
-  'sound.communalNote': 'Alunan bersama sedang dimainkan, jadi alunan anda dijeda.',
+  'sound.communalNote':
+    'Bacaan bersama sedang dimainkan. Bacaan peribadi tersedia selepas sesi tamat.',
+  'chanting.heartSutra': 'Sutra Hati',
+  'chanting.sixSyllable': 'Om Mani Padme Hum',
+  'chanting.greatCompassion': 'Mantera Belas Kasihan Agung',
+  'chanting.tibetanPronunciation': 'Sebutan Tibet',
+  'chanting.source': 'Sumber',
+  'chanting.backToTracks': 'Kembali ke bacaan',
+  'chanting.heartSutraEnglishTime': 'Anggaran bacaan: kira-kira 4–5 minit',
+  'chanting.heartSutraChineseTime': 'Anggaran bacaan: kira-kira 2–3½ minit',
   'chanting.soon': 'Alunan bersama akan bermula sebentar lagi',
   'chanting.live': 'Alunan bersama: semua orang mendengar bersama-sama',
   'specialDay.today': 'Hari ini: {name}',
@@ -92,7 +109,7 @@ export const ms = {
   'about.controlsBody':
     'Berjalan: ketik atau klik lantai, atau guna W A S D atau kekunci anak panah. Beri salam: 3. Tunduk hormat: 1, E atau Space. Nyalakan pelita: L.',
   'hall.description':
-    'Dewan kuil dilihat dari atas, dengan altar, kusyen dan pelita. Gunakan butang di bahagian bawah halaman untuk memberi salam, tunduk hormat, menyalakan pelita, bermeditasi dan menukar tetapan.',
+    'Dewan kuil dilihat dari atas, dengan patung Buddha duduk, kusyen dan pelita. Butang upacara berada di bawah dan kawalan lain dalam menu Lagi.',
   'error.webgl':
     'Pelayar ini tidak dapat memaparkan dewan 3D. Sila cuba versi terkini Chrome, Safari atau Firefox.',
 } as const satisfies Catalog;

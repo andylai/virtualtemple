@@ -37,6 +37,11 @@ describe('lengths', () => {
   });
 });
 
+it('keeps the background quiet before the listener’s volume setting is applied', () => {
+  const samples = synthAmbient(RATE, 48);
+  expect(samples.every((sample) => Math.abs(sample) < 0.18)).toBe(true);
+});
+
 /** The biggest change between two neighbouring samples inside the sound: what a smooth sound does. */
 const biggestStep = (samples: Float32Array): number => {
   let biggest = 0;

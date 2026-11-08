@@ -1,3 +1,14 @@
+:root {
+  --temple-deep: #2c1e17;
+  --temple-surface: #342820;
+  --temple-hover: #49372a;
+  --temple-text: #f4e7d2;
+  --temple-muted: #d1bea4;
+  --temple-line: #69523d;
+  --temple-gold: #e0bb83;
+  color-scheme: dark;
+}
+
 html,
 body,
 #root {
@@ -6,8 +17,8 @@ body,
 }
 
 body {
-  background: #1d1a16;
-  color: #f4ecdc;
+  background: var(--temple-deep);
+  color: var(--temple-text);
   font-family: system-ui, sans-serif;
   overflow: hidden;
   /* Pulling down must not refresh the page, and a double tap must not zoom it (M7-1). */
@@ -27,25 +38,6 @@ button {
   font-family: inherit;
 }
 
-@media (min-width: 700px) {
-  /* With room to spare, the hall's details sit in the corner and the messages stay centred. */
-  .hud {
-    position: fixed;
-    top: 8px;
-    right: calc(8px + env(safe-area-inset-right));
-    flex-direction: column;
-    gap: 2px;
-    padding: 8px 12px;
-  }
-
-  .toasts {
-    position: fixed;
-    top: 64px;
-    right: calc(8px + env(safe-area-inset-right));
-    align-items: flex-end;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto !important;
@@ -62,11 +54,11 @@ button {
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(29, 26, 22, 0.55);
+  background: rgba(33, 23, 17, 0.6);
 }
 
 .overlay-panel {
-  background: rgba(29, 26, 22, 0.9);
+  background: rgba(33, 23, 17, 0.92);
 }
 
 .overlay-card {
@@ -79,9 +71,17 @@ button {
   text-align: center;
 }
 
-.overlay-card h1 {
+.overlay-card h1,
+.overlay-card h2 {
   margin: 0 0 16px;
+  font-family: Georgia, serif;
   font-weight: 500;
+}
+
+.welcome-tagline {
+  margin: 0 0 20px;
+  color: var(--temple-muted);
+  line-height: 1.5;
 }
 
 .overlay-card button {
@@ -89,10 +89,15 @@ button {
   padding: 12px 40px;
   border: 0;
   border-radius: 8px;
-  background: #c9a227;
-  color: #1d1a16;
+  background: var(--temple-gold);
+  color: var(--temple-deep);
   font-size: 1.1rem;
   cursor: pointer;
+}
+
+.terms-content {
+  text-align: start;
+  line-height: 1.6;
 }
 
 .overlay-card button:focus-visible {
@@ -128,17 +133,6 @@ button {
   pointer-events: none;
 }
 
-.hud {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0 12px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: rgba(29, 26, 22, 0.7);
-  font-size: 0.9rem;
-}
-
 .banner {
   padding: 8px 16px;
   border-radius: 8px;
@@ -147,50 +141,205 @@ button {
   text-align: center;
 }
 
-/** The buttons along the bottom: quick rituals and everything else, wrapping as the screen narrows. */
+/* The hall chrome uses a quieter version of the altar's gold and walnut palette. */
+.hall-header {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(14px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 0
+    calc(16px + env(safe-area-inset-left));
+  pointer-events: none;
+}
+
+/* Dialogs opened from either group cover the other group's controls. */
+.hall-header:has(.overlay),
+.dock:has(.overlay) {
+  z-index: 3;
+}
+
+.hall-identity h1 {
+  margin: 0;
+  font:
+    500 clamp(1.25rem, 3vw, 2rem)/1.12 Georgia,
+    serif;
+  letter-spacing: -0.02em;
+}
+
+.hall-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 6px;
+  margin-top: 5px;
+  color: var(--temple-muted);
+  font-size: 0.8rem;
+}
+
+.top-joined {
+  padding-top: calc(83px + env(safe-area-inset-top));
+}
+
+.more-menu {
+  position: relative;
+  flex: none;
+  pointer-events: auto;
+}
+
+.more-actions {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(245px, 74vw);
+  box-sizing: border-box;
+  padding: 5px;
+  border: 1px solid var(--temple-line);
+  border-radius: 14px;
+  background: var(--temple-surface);
+  box-shadow: 0 12px 30px #160c0866;
+}
+
+.more-actions > button,
+.more-toggle,
+.ritual-bar > button,
+.ritual-controls > .stop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--temple-text);
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.more-toggle,
+.ritual-controls > .stop {
+  border-color: var(--temple-line);
+  background: var(--temple-surface);
+}
+
+.more-actions > button {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.more-actions > .leave-action {
+  border-top-color: var(--temple-line);
+  border-radius: 0 0 8px 8px;
+}
+
+.more-actions > button:hover,
+.more-toggle:hover,
+.ritual-bar > button:hover:not(:disabled),
+.ritual-controls > .stop:hover {
+  background: var(--temple-hover);
+}
+
+.more-actions > button:focus-visible,
+.more-toggle:focus-visible,
+.ritual-bar > button:focus-visible,
+.ritual-controls > .stop:focus-visible,
+.hall-list button:focus-visible {
+  outline: 2px solid var(--temple-gold);
+  outline-offset: 2px;
+}
+
+.hall-icon {
+  flex: none;
+  width: 19px;
+  height: 19px;
+  color: var(--temple-gold);
+}
+
 .dock {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   z-index: 1;
+  display: grid;
+  justify-items: center;
+  padding: 8px calc(8px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom))
+    calc(8px + env(safe-area-inset-left));
+  pointer-events: none;
+}
+
+.chanting-choices {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+.overlay-card .sutra-back {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.sutra-duration {
+  color: var(--temple-muted);
+  font-size: 0.9rem;
+}
+
+.sutra-text {
+  text-align: start;
+  line-height: 1.7;
+}
+
+.sutra-text p {
+  margin: 0 0 1em;
+}
+
+.sutra-english p {
+  white-space: pre-line;
+}
+
+.sutra-pinyin {
+  display: block;
+  color: var(--temple-muted);
+  font-size: 0.9em;
+}
+
+.mantra-syllables {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8px 16px;
-  padding: 8px calc(12px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom))
-    calc(12px + env(safe-area-inset-left));
-  pointer-events: none;
+  gap: 12px 20px;
+  font-size: 1.25rem;
+  text-align: center;
+}
+
+.sutra-text footer {
+  padding-block: 12px;
+  border-top: 1px solid var(--temple-line);
+  color: var(--temple-muted);
+  font-size: 0.875rem;
+}
+
+.sutra-text a {
+  color: var(--temple-gold);
 }
 
 .dock > * {
   pointer-events: auto;
 }
 
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-}
-
-.toolbar button,
 .hall-list button {
   min-height: 44px;
   padding: 8px 14px;
   border: 0;
   border-radius: 8px;
-  background: rgba(244, 236, 220, 0.9);
-  color: #1d1a16;
+  background: var(--temple-gold);
+  color: var(--temple-deep);
   font-size: 0.95rem;
   cursor: pointer;
-}
-
-.toolbar button:focus-visible,
-.hall-list button:focus-visible {
-  outline: 3px solid #c9a227;
-  outline-offset: 2px;
 }
 
 .hall-list {
@@ -214,41 +363,44 @@ button {
 .overlay-card .secondary {
   background: transparent;
   border: 1px solid #f4ecdc;
-  color: #f4ecdc;
+  color: var(--temple-text);
   padding: 8px 24px;
+}
+
+.ritual-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: min(100%, 540px);
 }
 
 .ritual-bar {
   display: flex;
-  flex-wrap: wrap;
+  flex: 1 1 340px;
+  max-width: 420px;
   justify-content: center;
-  gap: 8px;
+  padding: 4px;
+  border: 1px solid var(--temple-line);
+  border-radius: 16px;
+  background: var(--temple-surface);
 }
 
-/* Direct children only: the Meditate button's dialog is rendered inside the bar and has its own buttons. */
 .ritual-bar > button {
-  min-height: 44px;
-  padding: 10px 16px;
-  border: 0;
-  border-radius: 8px;
-  background: #c9a227;
-  color: #1d1a16;
-  font-size: 0.95rem;
-  cursor: pointer;
-}
-
-.ritual-bar > button.stop {
-  background: #f4ecdc;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  min-height: 54px;
+  padding: 5px 2px;
+  font-size: clamp(0.74rem, 2.8vw, 0.85rem);
+  overflow-wrap: anywhere;
 }
 
 .ritual-bar > button:disabled {
   opacity: 0.55;
   cursor: default;
-}
-
-.ritual-bar > button:focus-visible {
-  outline: 3px solid #f4ecdc;
-  outline-offset: 2px;
 }
 
 .toasts {
@@ -274,8 +426,8 @@ button {
 }
 
 .special-day {
-  background: #c9a227;
-  color: #1d1a16;
+  background: var(--temple-gold);
+  color: var(--temple-deep);
 }
 
 .chanting-banner {
@@ -311,9 +463,63 @@ button {
   color: #c9a227;
 }
 
-.slider select {
+.language-picker {
+  min-inline-size: 0;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  text-align: start;
+}
+
+.language-picker legend {
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--temple-muted);
+  font-size: 0.9rem;
+}
+
+.language-options {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--temple-line);
+  border-radius: 12px;
+  background: var(--temple-surface);
+}
+
+.overlay-card .language-options button {
+  flex: 1 1 0;
+  min-inline-size: 0;
   padding: 6px;
+  background: transparent;
+  color: var(--temple-text);
   font-size: 1rem;
+}
+
+.overlay-card .language-options button:hover {
+  background: var(--temple-hover);
+}
+
+.overlay-card .language-options button[aria-pressed='true'] {
+  background: var(--temple-gold);
+  color: var(--temple-deep);
+}
+
+.meditation-guide {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding-inline-start: 24px;
+  text-align: start;
+}
+
+.meditation-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.meditation-options button {
+  padding-inline: 6px;
 }
 
 .meditation {
@@ -332,7 +538,7 @@ button {
   border: 0;
   border-radius: 6px;
   background: #f4ecdc;
-  color: #1d1a16;
+  color: var(--temple-deep);
   cursor: pointer;
 }
 
@@ -344,4 +550,38 @@ button {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* One fitted rectangle keeps the approved artwork, avatar positions and floor taps aligned. */
+.painted-stage-space {
+  position: absolute;
+  inset: calc(72px + env(safe-area-inset-top)) 0 0;
+  display: grid;
+  place-items: center;
+  container-type: size;
+}
+
+.painted-stage {
+  position: relative;
+  width: min(100cqw, calc(100cqh * var(--art-aspect)));
+}
+
+.painted-stage > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: brightness(0.94);
+  pointer-events: none;
+}
+
+.painted-lamp-glow {
+  position: absolute;
+  width: 1.05%;
+  height: 2.15%;
+  transform: translate(-50%, -50%);
+  border-radius: 10%;
+  background: #fead5bc7;
+  box-shadow: 0 0 5px 1px #d08e494f;
+  mix-blend-mode: screen;
+  pointer-events: none;
 }

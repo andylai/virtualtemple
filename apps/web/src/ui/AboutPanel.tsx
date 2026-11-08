@@ -1,35 +1,29 @@
+import { HallIcon } from './HallIcon';
 import { flagshipManifest } from '@temple/shared/flagship';
 import { useState } from 'react';
 import { useLanguage, useT } from '../i18n/I18nProvider';
 import { Overlay } from './Overlay';
+import { TermsPanel } from './TermsPanel';
 
 /** The "About" button and its panel: what is stored, and credits for third-party work (FR-37). */
 export function AboutPanel() {
   const t = useT();
   const language = useLanguage();
-  const [open, setOpen] = useState(false);
+  const [panel, setPanel] = useState<'about' | 'terms' | null>(null);
   const { credits } = flagshipManifest;
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)}>
+      <button type="button" onClick={() => setPanel('about')}>
+        <HallIcon name="about" />
         {t('about.button')}
       </button>
-      {open && (
-        <Overlay title={t('about.title')} onClose={() => setOpen(false)}>
+      {panel === 'about' && (
+        <Overlay title={t('about.title')} onClose={() => setPanel(null)}>
           <p>{t('about.privacy')}</p>
-          <ul className="credits">
-            <li>
-              <a href="/privacy.html" target="_blank" rel="noreferrer noopener">
-                {t('about.privacyLink')}
-              </a>
-            </li>
-            <li>
-              <a href="/terms.html" target="_blank" rel="noreferrer noopener">
-                {t('about.termsLink')}
-              </a>
-            </li>
-          </ul>
+          <button type="button" className="secondary" onClick={() => setPanel('terms')}>
+            {t('about.termsLink')}
+          </button>
           <h3>{t('about.controls')}</h3>
           <p>{t('about.controlsBody')}</p>
           <h3>{t('about.credits')}</h3>
@@ -51,11 +45,12 @@ export function AboutPanel() {
               ))}
             </ul>
           )}
-          <button type="button" className="secondary" onClick={() => setOpen(false)}>
+          <button type="button" className="secondary" onClick={() => setPanel(null)}>
             {t('button.close')}
           </button>
         </Overlay>
       )}
+      {panel === 'terms' && <TermsPanel onBack={() => setPanel('about')} />}
     </>
   );
 }

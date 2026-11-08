@@ -67,6 +67,7 @@ describe('nicknameText', () => {
   it('joins the two words in the requested language, falling back to English', () => {
     expect(nicknameText(flagshipManifest.nicknames, ids, 'en')).toBe('Calm Lotus');
     expect(nicknameText(flagshipManifest.nicknames, ids, 'ms')).toBe('Calm Lotus');
+    expect(nicknameText(flagshipManifest.nicknames, ids, 'zh')).toBe('宁静·莲花');
   });
 
   it('shows the raw id for a word that is not in the list', () => {

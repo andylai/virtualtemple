@@ -1,5 +1,6 @@
-import { DEFAULT_CONFIG, parseHallNumber, type LanguageCode } from '@temple/shared';
+import { DEFAULT_CONFIG, parseHallNumber } from '@temple/shared';
 import { HallConnection, sessionTokenStorage, type TokenStorage } from './connection';
+import { resolveLanguage } from '../i18n/translate';
 import { preferencesStore } from '../prefs/preferences';
 import { fetchHalls } from './hallsApi';
 import { INITIAL_HALL_STATE, type HallState } from './hallState';
@@ -27,10 +28,9 @@ export interface HallClient {
  * Builds the client for the halls. Nothing connects until `flow.start()` is called, which happens
  * when the visitor presses Enter.
  *
- * @param language - The visitor's language.
  * @param requestedHall - The hall named in the page address, or null.
  */
-export function createHallClient(language: LanguageCode, requestedHall: number | null): HallClient {
+export function createHallClient(requestedHall: number | null): HallClient {
   const store = new Store<HallState>(INITIAL_HALL_STATE);
   const tracks = new TrackSet();
   const ritualClock = new RitualClock();
@@ -38,7 +38,7 @@ export function createHallClient(language: LanguageCode, requestedHall: number |
   const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
   const connection = new HallConnection({
     urlForHall: (hall) => `${scheme}://${window.location.host}/ws?hall=${hall}`,
-    language,
+    language: () => resolveLanguage(preferencesStore().getState().language, navigator.languages),
     store,
     tracks,
     ritualClock,

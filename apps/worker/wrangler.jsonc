@@ -62,7 +62,7 @@
     "production": {
       "name": "virtual-temple",
       "workers_dev": false,
-      "routes": [{ "pattern": "andylai", "custom_domain": true }],
+      "routes": [{ "pattern": "stillhere.mettahome.top", "custom_domain": true }],
       "durable_objects": {
         "bindings": [
           { "name": "TempleRoom", "class_name": "TempleRoom" },
@@ -72,7 +72,7 @@
       "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TempleRoom", "HallDirectory"] }],
       "vars": {
         "TEMPLE_SLUG": "flagship",
-        "ALLOWED_ORIGINS": "https://virtual-temple-staging.andylai.workers.dev",
+        "ALLOWED_ORIGINS": "https://stillhere.mettahome.top",
       },
       "assets": {
         "directory": "../web/dist",

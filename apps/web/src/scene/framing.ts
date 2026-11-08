@@ -5,7 +5,7 @@ import { BLOCKOUT, type HallLayout } from './hallLayout';
  * Vertical field of view of the hall camera, in degrees. A narrow lens makes the walls slope in
  * less, so the hall looks like a wide flat room and not a deep funnel.
  */
-export const CAMERA_FOV = 38;
+export const CAMERA_FOV = 25;
 /** How far the camera looks down on the hall, in degrees. A low angle makes the hall look wider. */
 const VIEW_ELEVATION_DEG = 24;
 /** The camera looks at this height above the floor, so the walls and altar are in view too, in metres. */
@@ -49,16 +49,21 @@ export interface Framing {
   distance: number;
 }
 
-/** The outer corners of the hall, as seen from the camera: the floor, the back wall and its top. */
+/** The facade and cutaway walls must stay in frame even on a narrow screen. */
 export function hallPoints(layout: HallLayout): Vector3[] {
   const { minX, maxX, minZ, maxZ } = layout.bounds;
-  const backZ = layout.walls[0]?.z ?? minZ;
-  const points: Vector3[] = [];
+  const points = layout.walls.flatMap(({ x, y, z, width, height, depth }) =>
+    [-1, 1].flatMap((sideX) =>
+      [-1, 1].flatMap((sideZ) => [
+        new Vector3(x + (sideX * width) / 2, y - height / 2, z + (sideZ * depth) / 2),
+        new Vector3(x + (sideX * width) / 2, y + height / 2, z + (sideZ * depth) / 2),
+      ]),
+    ),
+  );
   for (const x of [minX, maxX]) {
-    for (const z of [minZ, maxZ, backZ]) {
-      points.push(new Vector3(x, 0, z));
+    for (const z of [minZ - BLOCKOUT.altarDepth, maxZ]) {
+      points.push(new Vector3(x, -BLOCKOUT.floorThickness, z));
     }
-    points.push(new Vector3(x, BLOCKOUT.wallHeight, backZ));
   }
   return points;
 }

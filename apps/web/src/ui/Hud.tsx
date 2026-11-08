@@ -12,14 +12,19 @@ export function Hud({ state }: { state: HallState }) {
   }
   const name = nicknameText(flagshipManifest.nicknames, state.nickname, language);
   return (
-    <div className="hud">
-      <strong>{t('hud.hall', { n: state.hall })}</strong>
-      <span>
-        {state.population === 1
-          ? t('hud.people.one')
-          : t('hud.people.other', { count: state.population })}
-      </span>
-      <span>{t('hud.you', { name })}</span>
+    <div className="hall-identity">
+      <h1>{t('app.wordmark')}</h1>
+      <div className="hall-meta">
+        <span>{t('hud.hall', { n: state.hall })}</span>
+        <span aria-hidden="true">·</span>
+        <span>
+          {state.population === 1
+            ? t('hud.people.one')
+            : t('hud.people.other', { count: state.population })}
+        </span>
+        <span aria-hidden="true">·</span>
+        <span>{t('hud.you', { name })}</span>
+      </div>
     </div>
   );
 }

@@ -1,7 +1,10 @@
 import { Canvas, useThree } from '@react-three/fiber';
 import type { Point } from '@temple/shared';
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { flagshipManifest } from '@temple/shared/flagship';
+import { FloorClickArea } from './BlockoutHall';
+import { FLAGSHIP_VIEW } from './flagshipView';
+import { PaintedStage } from './PaintedStage';
 import { ASSET_BASE } from '../assets/assetUrl';
 import { CAMERA_FOV, frameHall, type ScreenReserve } from './framing';
 import type { HallLayout } from './hallLayout';
@@ -17,15 +20,28 @@ const MAX_PIXEL_RATIO = 2;
  * Room kept free below the hall for the buttons, in pixels, until the buttons report their real
  * height. Phones wrap the buttons onto more rows.
  */
-const BUTTONS_HEIGHT_PX = 110;
-const BUTTONS_HEIGHT_PHONE_PX = 170;
+const BUTTONS_HEIGHT_PX = 86;
+const BUTTONS_HEIGHT_PHONE_PX = 102;
 /** Room kept free above the hall for the text at the top, in pixels. On phones it runs across the screen. */
-const TEXT_HEIGHT_PX = 40;
-const TEXT_HEIGHT_PHONE_PX = 72;
+const TEXT_HEIGHT_PX = 88;
+const TEXT_HEIGHT_PHONE_PX = 88;
 const PHONE_WIDTH_PX = 600;
 /** Where the manifest's models and pictures are. The manifest is fixed for the life of the page. */
 const SLOT_URLS = resolveSlotUrls(flagshipManifest, ASSET_BASE);
-const LIGHTS = { ambient: 0.7, sun: 1.1, sunPosition: [6, 12, 8] } as const;
+/** Custom scene art takes precedence over the flagship's bundled illustration. */
+const USE_PAINTED_HALL = Object.entries(SLOT_URLS).every(
+  ([slot, url]) => slot === 'avatar' || url === null,
+);
+const LIGHTS = {
+  ambient: 0.88,
+  sun: 1.45,
+  sunColour: '#ffe4c5',
+  sunPosition: [3, 12, 8],
+  altarColour: '#ffc789',
+  altarIntensity: 14,
+  altarHeight: 3.35,
+  altarOffsetZ: 1.55,
+} as const;
 /** Fixed so the stand-in avatars land in the same places on every run. */
 const STAND_IN_SEED = 20261101;
 
@@ -110,29 +126,49 @@ export function HallScene({
     () => (standIns > 0 ? scatterPoints(standIns, layout.floor, STAND_IN_SEED) : []),
     [layout.floor, standIns],
   );
-  const firstFrame = useMemo(() => {
-    const { innerWidth: width, innerHeight: height } = window;
-    return frameHall(layout, width / Math.max(1, height), reserveFor(width, Math.max(1, height)));
-  }, [layout]);
-
-  return (
+  const [artworkFailed, setArtworkFailed] = useState(false);
+  const painted = USE_PAINTED_HALL && !artworkFailed;
+  const canvas = (
     <Canvas
       dpr={[1, MAX_PIXEL_RATIO]}
-      camera={{ position: firstFrame.position, fov: CAMERA_FOV }}
+      camera={painted ? FLAGSHIP_VIEW.camera : { fov: CAMERA_FOV }}
       onCreated={onReady}
+      style={painted ? { position: 'absolute', inset: 0 } : undefined}
     >
       <ambientLight intensity={LIGHTS.ambient} />
-      <directionalLight intensity={LIGHTS.sun} position={LIGHTS.sunPosition} />
-      <FixedCamera layout={layout} />
-      {onPictureLost !== undefined && <ContextWatch onLost={onPictureLost} />}
-      <TempleHall
-        layout={layout}
-        slots={SLOT_URLS}
-        onFloorClick={onFloorClick}
-        litLamps={litLamps}
+      <directionalLight
+        color={LIGHTS.sunColour}
+        intensity={LIGHTS.sun}
+        position={LIGHTS.sunPosition}
       />
+      <pointLight
+        color={LIGHTS.altarColour}
+        intensity={LIGHTS.altarIntensity}
+        position={[layout.altar.x, LIGHTS.altarHeight, layout.altar.z + LIGHTS.altarOffsetZ]}
+      />
+      {onPictureLost !== undefined && <ContextWatch onLost={onPictureLost} />}
+      {painted ? (
+        <FloorClickArea layout={layout} onFloorClick={onFloorClick} />
+      ) : (
+        <>
+          <FixedCamera layout={layout} />
+          <TempleHall
+            layout={layout}
+            slots={SLOT_URLS}
+            onFloorClick={onFloorClick}
+            litLamps={litLamps}
+          />
+        </>
+      )}
       <StandInAvatars points={points} />
       {children}
     </Canvas>
+  );
+  return painted ? (
+    <PaintedStage litLamps={litLamps} onArtworkError={() => setArtworkFailed(true)}>
+      {canvas}
+    </PaintedStage>
+  ) : (
+    canvas
   );
 }

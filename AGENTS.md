@@ -11,6 +11,13 @@ An online Buddhist virtual temple for a Malaysian audience: anonymous visitors s
 - [docs/mvp/plan.md](docs/mvp/plan.md) — milestones and tasks
 - [docs/mvp/spikes.md](docs/mvp/spikes.md) — results of the M0 technical spikes
 
+## Plan before coding
+
+1. Review the relevant files and requirements. Read-only investigation is fine at this stage.
+2. Show the user a short plan covering what will change, any decisions they need to make, and how the work will be verified.
+3. Wait for the user’s approval before editing code or running commands that make changes. If the user revises the plan, confirm the revised scope before starting.
+4. After implementation, report what changed and which checks passed.
+
 ## Runtime and tools
 
 - Node.js 22 or newer, pnpm 10 (`corepack enable` if pnpm is missing).
@@ -114,5 +121,13 @@ docs/mvp/           intent, spec, plan, spikes
 - ADR-038 — The Content-Security-Policy is a static `_headers` file checked on every build — A policy that is only reviewed by eye drifts. The build fails on an inline script, an unsafe source or an art address the policy lacks, and the deployed policy is the one tested.
 - ADR-039 — Browsers report problems as a fixed kind plus a short note, once per kind per page, and the server counts them by browser family — The page needs an error signal without a log service or personal data: no stack traces, no addresses, no free-form fields (the schema is strict), and a failing page cannot loop on reporting.
 - ADR-040 — Logs and metrics go to Cloudflare Workers logs as structured JSON through `Telemetry`; gauges are carried by the periodic `sweep` line — Resolves O-9 for Phase 1 with nothing to run or pay for beyond the plan. A line per message would swamp the logs, so message rates ride on the sweep. Moving the destination changes only `telemetry.ts`.
-- ADR-041 — The privacy note and terms are static English pages marked as drafts, and the production deploy refuses while they are drafts or lack a contact address — A legal review is a person's decision that code cannot make, so the gate is what keeps unreviewed text off the public site.
+- ADR-041 — Terms and a short privacy notice share one page per language and open in the hall. Production checks both published versions for draft markers and contact placeholders. Review and add a privacy contact before removing the markers.
 - ADR-042 — Operational tools are workspace packages under `tools/`, run with `tsx` and tested with Vitest — The load test and the deploy check must reuse the shared message schemas and be held to the same lint, typecheck and test rules as the product.
+
+- ADR-043 — The procedural avatar has separate waist, leg and two-segment arm pivots — A standing bow keeps the feet planted, and fixed shoulders with bent elbows let the palms meet at the chest. Meditation blends to folded legs under the robe and hands in the lap. Poses use the existing ritual clock for every visitor; reduced motion shows a held ritual pose and suppresses walking swings and pulses.
+
+- ADR-044 — The fixed camera hall uses local altar relief artwork, generated walnut floor grain, and geometry for furniture and architecture — The design stays close to the approved artwork with one small texture for the statue while retaining walkable geometry and the manifest's model overrides. A narrower 25-degree lens reduces perspective shrinkage at the altar while retaining the same fixed view direction (refines ADR-024). The ritual dock stays visible and the hall header's More disclosure groups secondary actions around their existing dialogs.
+
+- ADR-045 — The flagship's fixed view uses the approved hall artwork behind the live 3D avatars — One calibrated camera keeps taps, visitors and cushion positions aligned with the illustration at every screen size. The opaque scene avoids cutout edges on the Buddha. Lanterns are painted unlit, and a soft highlight lights the permanent altar pair and active ritual lamps at their matching artwork positions. Manifest art overrides and the fallback geometry keep their existing path.
+
+- ADR-046 — Personal recitations are named recordings in the manifest and share the existing chanting audio layer — A track can be listed before its recording is available, but playback requires a recording with attribution and never substitutes a synthetic hum. The dock shortcut owns personal playback; the same audio engine fades the background and gives scheduled communal chanting priority.

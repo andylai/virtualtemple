@@ -13,12 +13,11 @@ const root = join(import.meta.dirname, '..', '..', '..');
 const environment = process.argv[2] as DeployEnvironment | undefined;
 
 /**
- * The privacy note and terms are drafts until a lawyer has reviewed them (plan M8-6). Staging may
- * carry them; the public site may not. Both need a real contact address on either.
+ * The combined terms and privacy pages need review before a public launch (plan M8-6).
  */
 function checkLegalPages(target: DeployEnvironment): string[] {
   const problems: string[] = [];
-  for (const file of ['privacy.html', 'terms.html']) {
+  for (const file of ['terms.html', 'terms-zh.html']) {
     const path = join(root, 'apps/web/dist', file);
     const text = existsSync(path) ? readFileSync(path, 'utf8') : '';
     if (text === '') {

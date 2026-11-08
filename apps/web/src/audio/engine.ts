@@ -7,9 +7,17 @@ export type SoundName = 'ambient' | 'chanting' | 'bell' | 'lamp';
 export type SfxName = 'bell' | 'lamp';
 
 const MS_PER_SECOND = 1000;
+const CHANT_AMBIENT_SHARE = 0.22;
+const AMBIENT_FADE_SEC = 0.22;
 
 type Volumes = Record<Layer, number>;
 type ChantKind = 'personal' | 'communal';
+
+/** A stable track id distinguishes loading, playback and retry after a failed download. */
+interface PersonalChant {
+  id: string;
+  state: 'loading' | 'playing' | 'failed';
+}
 
 /** Everything the engine needs from outside, so tests can replace the browser's audio. */
 export interface EngineDeps {
@@ -24,7 +32,7 @@ export interface EngineDeps {
 /** What the sound panel shows. A new object is made each time something changes. */
 export interface EngineSnapshot {
   volumes: Readonly<Volumes>;
-  personalChanting: boolean;
+  personalChant: Readonly<PersonalChant> | null;
   communalChanting: boolean;
 }
 
@@ -35,7 +43,7 @@ export class AudioEngine {
   private readonly buffers = new Map<SoundName, Promise<AudioBuffer>>();
   private volumes: Volumes;
   private chant: { source: AudioBufferSourceNode; kind: ChantKind } | null = null;
-  private personalWanted = false;
+  private personal: PersonalChant | null = null;
   private communal: { session: Session; clockOffsetMs: number } | null = null;
   private communalTimer: ReturnType<typeof setTimeout> | null = null;
   private paused = false;
@@ -60,11 +68,6 @@ export class AudioEngine {
   /** The volume of each layer, from 0 to 1. */
   getVolumes(): Readonly<Volumes> {
     return this.volumes;
-  }
-
-  /** Whether the visitor's own chanting is playing (not the communal one). */
-  get personalChanting(): boolean {
-    return this.chant?.kind === 'personal';
   }
 
   /** Whether the communal chanting is playing for everyone. */
@@ -110,6 +113,7 @@ export class AudioEngine {
   /** Silences everything, for example while the visitor has left the hall. `unpause` brings it back. */
   pause(): void {
     this.paused = true;
+    this.stopPersonalChant();
     this.applySuspension();
   }
 
@@ -196,19 +200,33 @@ export class AudioEngine {
     }
   }
 
-  /** Starts or stops the visitor's own chanting. It gives way to the communal chanting (FR-24). */
-  togglePersonalChanting(): void {
-    if (this.personalChanting || this.personalWanted) {
-      this.personalWanted = false;
-      this.stopChant('personal');
-    } else if (this.context !== null && !this.communalChanting) {
-      this.personalWanted = true;
-      void this.loadBuffer('chanting').then((buffer) => {
-        if (this.personalWanted && !this.communalChanting) {
-          this.startChant(buffer, 0, 'personal');
-        }
-      });
+  /** Loads the selected recording once. Ignore stale loads after Stop, another selection or takeover. */
+  async playPersonalChant(
+    id: string,
+    load: (context: AudioContext) => Promise<AudioBuffer>,
+  ): Promise<void> {
+    const context = this.context;
+    if (context === null || this.paused || this.communalChanting) return;
+    const request: PersonalChant = { id, state: 'loading' };
+    this.personal = request;
+    this.stopChant('personal');
+    this.notify();
+    try {
+      const buffer = await load(context);
+      if (this.personal !== request) return;
+      this.startChant(buffer, 0, 'personal');
+    } catch {
+      if (this.personal !== request) return;
+      this.personal = { id, state: 'failed' };
+      this.notify();
     }
+  }
+
+  /** Cancels either a download or a currently playing private recitation. */
+  stopPersonalChant(): void {
+    if (this.personal === null) return;
+    this.personal = null;
+    this.stopChant('personal');
     this.notify();
   }
 
@@ -257,7 +275,7 @@ export class AudioEngine {
     if (plan.state === 'waiting') {
       this.communalTimer = setTimeout(() => void this.applyCommunal(), plan.startInMs);
     } else if (plan.state === 'playing') {
-      this.personalWanted = false;
+      this.personal = null;
       this.startChant(buffer, plan.offsetSec, 'communal');
       if (plan.offsetSec < 1) {
         this.playSfx('bell');
@@ -277,12 +295,22 @@ export class AudioEngine {
   }
 
   /** Sets each layer's loudness. A tab that is hidden but waiting for a bell plays only the sound effects. */
-  private applyGains(): void {
+  private applyGains(fadeAmbient = false): void {
     const silenced = !this.pageVisible && !this.backgroundPlay;
     for (const layer of ['ambient', 'chanting', 'sfx'] as const) {
       const gain = this.gains[layer];
       if (gain !== undefined) {
-        gain.gain.value = silenced && layer !== 'sfx' ? 0 : this.volumes[layer];
+        const share = layer === 'ambient' && this.chant !== null ? CHANT_AMBIENT_SHARE : 1;
+        const target = silenced && layer !== 'sfx' ? 0 : this.volumes[layer] * share;
+        if (layer === 'ambient' && this.context !== null) {
+          const now = this.context.currentTime;
+          gain.gain.cancelScheduledValues(now);
+          if (fadeAmbient && !silenced) {
+            gain.gain.setTargetAtTime(target, now, AMBIENT_FADE_SEC);
+            continue;
+          }
+        }
+        gain.gain.value = target;
       }
     }
   }
@@ -348,18 +376,34 @@ export class AudioEngine {
     this.stopChant();
     const source = context.createBufferSource();
     source.buffer = buffer;
-    source.loop = true;
+    source.loop = kind === 'communal';
     source.connect(gain);
+    if (kind === 'personal') {
+      source.onended = () => {
+        if (this.chant?.source === source) {
+          this.chant = null;
+          this.personal = null;
+          this.applyGains(true);
+          this.notify();
+        }
+      };
+    }
     source.start(0, offsetSec);
     this.chant = { source, kind };
+    if (kind === 'personal' && this.personal !== null) {
+      this.personal = { ...this.personal, state: 'playing' };
+    }
+    this.applyGains(true);
     this.notify();
   }
 
   /** Stops the chanting that is playing, if it is of the given kind (or of any kind when none is given). */
   private stopChant(kind?: ChantKind): void {
     if (this.chant !== null && (kind === undefined || this.chant.kind === kind)) {
+      this.chant.source.onended = null;
       this.chant.source.stop();
       this.chant = null;
+      this.applyGains(true);
       this.notify();
     }
   }
@@ -374,7 +418,7 @@ export class AudioEngine {
   private makeSnapshot(): EngineSnapshot {
     return {
       volumes: this.volumes,
-      personalChanting: this.personalChanting,
+      personalChant: this.personal,
       communalChanting: this.communalChanting,
     };
   }

@@ -56,6 +56,20 @@ const credit = z.object({
   url: z.url({ protocol: /^https$/ }).optional(),
 });
 
+/** A track is listed without playback until there is a recording the temple can use. */
+const personalChant = z.object({
+  id: itemId,
+  title: localizedText,
+  recording: z
+    .object({
+      path: audioPath,
+      durationSec: z.number().int().positive(),
+      language: localizedText,
+      credit: credit.pick({ by: true, license: true, url: true }),
+    })
+    .nullable(),
+});
+
 const cushion = z.object({ id: itemId, x: coordinate, z: coordinate, facing: coordinate });
 const lampSlot = z.object({ id: itemId, x: coordinate, z: coordinate });
 const word = z.object({ id: itemId, text: localizedText });
@@ -89,12 +103,13 @@ export const manifestSchema = z
     tradition: z.enum(TRADITIONS),
     languages: z.array(z.enum(LANGUAGE_CODES)).min(1),
     timezone: z.string().min(1),
-    chantingSchedule: z.array(timeOfDay).min(1),
+    chantingSchedule: z.array(timeOfDay),
     specialDays: z.array(specialDay),
     hall: hallSchema,
     audio: z.object({
       ambient: audioPath,
       chanting: audioPath,
+      personalChants: z.array(personalChant).default([]),
       /** How long a communal chanting session lasts: the length of the chanting recording. */
       chantingDurationSec: z.number().int().positive(),
       sfx: z.object({ bell: audioPath, lamp: audioPath }),
@@ -128,6 +143,7 @@ function crossFieldProblems(manifest: z.infer<typeof manifestSchema>): string[] 
   const { hall } = manifest;
   const walkable: Point[] = hall.walkableArea;
   const lists: Record<string, string[]> = {
+    'audio.personalChants': manifest.audio.personalChants.map((item) => item.id),
     'hall.cushions': hall.cushions.map((item) => item.id),
     'hall.lampSlots': hall.lampSlots.map((item) => item.id),
     'nicknames.adjectives': manifest.nicknames.adjectives.map((item) => item.id),

@@ -189,11 +189,14 @@ export function nicknameText(
   ids: NicknameIds,
   language: (typeof LANGUAGE_CODES)[number],
 ): string {
-  const textOfWord = (list: readonly WordEntry[], id: string): string => {
-    const word = list.find((entry) => entry.id === id);
-    return word?.text[language] ?? word?.text.en ?? id;
-  };
-  return `${textOfWord(words.adjectives, ids.adjectiveId)} ${textOfWord(words.nouns, ids.nounId)}`;
+  const adjective = words.adjectives.find((word) => word.id === ids.adjectiveId)?.text;
+  const noun = words.nouns.find((word) => word.id === ids.nounId)?.text;
+  const separator =
+    language === 'zh' && adjective?.zh !== undefined && noun?.zh !== undefined ? '·' : ' ';
+  return [
+    adjective?.[language] ?? adjective?.en ?? ids.adjectiveId,
+    noun?.[language] ?? noun?.en ?? ids.nounId,
+  ].join(separator);
 }
 
 interface WordEntry {

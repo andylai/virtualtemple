@@ -1,3 +1,4 @@
+import { HallIcon } from './HallIcon';
 import type { HallsResponse } from '@temple/shared';
 import { useState } from 'react';
 import { useT } from '../i18n/I18nProvider';
@@ -27,6 +28,7 @@ export function ChangeHall({ currentHall, onPick }: ChangeHallProps) {
   return (
     <>
       <button type="button" onClick={show}>
+        <HallIcon name="hall" />
         {t('hall.change')}
       </button>
       {open && (

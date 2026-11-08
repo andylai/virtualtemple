@@ -1,44 +1,42 @@
 import type { Point } from '@temple/shared';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ShapeGeometry, Shape, Vector2 } from 'three';
-import { BLOCKOUT, type Box, type HallLayout } from './hallLayout';
+import { BuddhaRelief } from './BuddhaRelief';
+import { AltarCabinet, HALL_COLOURS, HallBox, HallDetails } from './HallDetails';
+import { hallWoodTexture } from './HallWood';
+import { BLOCKOUT, type HallLayout } from './hallLayout';
 import { ModelSlot } from './slots/LazySlots';
-
-/** Colours of the placeholder hall. Real art replaces all of them. */
-const PALETTE = {
-  floor: '#8a6a4b',
-  wall: '#d8c7a3',
-  altar: '#6b4a2f',
-  statue: '#c9a227',
-  rack: '#5a3e28',
-  cushion: '#a33b2d',
-  lamp: '#7a6a4a',
-  litLamp: '#ffd36b',
-} as const;
-
-const LIT_LAMP_GLOW = 1.2;
 
 /** A press that moves further than this many pixels is a drag, not a click. */
 const CLICK_DRAG_PX = 5;
-const CYLINDER_SEGMENTS = 20;
-const LAMP_SEGMENTS = 12;
+const CUSHION_SEGMENTS = 20;
+const ALTAR_LANTERN_OFFSET_SHARE = 0.34;
+const LANTERN = { roof: 0.24, base: 0.2, paper: 0.15, trim: 0.045, glow: 0.4992 } as const;
 
-function BoxMesh({ box, color }: { box: Box; color: string }) {
-  return (
-    <mesh position={[box.x, box.y, box.z]}>
-      <boxGeometry args={[box.width, box.height, box.depth]} />
-      <meshStandardMaterial color={color} />
-    </mesh>
-  );
-}
-
-/** The coloured floor of the placeholder hall. */
-function ColourFloor({ layout }: { layout: HallLayout }) {
+/** The grain and plank seams are baked into one texture, keeping the floor one mesh. */
+function WoodFloor({ layout }: { layout: HallLayout }) {
   const geometry = useFloorGeometry(layout);
+  const texture = useMemo(hallWoodTexture, []);
+  useEffect(() => () => texture.dispose(), [texture]);
+  const { minX, maxX, minZ, maxZ } = layout.bounds;
+  const rear = minZ - BLOCKOUT.altarDepth;
   return (
-    <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]}>
-      <meshStandardMaterial color={PALETTE.floor} />
-    </mesh>
+    <>
+      <HallBox
+        box={{
+          x: (minX + maxX) / 2,
+          y: -BLOCKOUT.floorThickness * 0.51,
+          z: (rear + maxZ) / 2,
+          width: maxX - minX,
+          height: BLOCKOUT.floorThickness,
+          depth: maxZ - rear,
+        }}
+        color={HALL_COLOURS.edge}
+      />
+      <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]}>
+        <meshStandardMaterial map={texture} roughness={0.97} />
+      </mesh>
+    </>
   );
 }
 
@@ -79,11 +77,8 @@ export function FloorClickArea({
 }
 
 /**
- * The box-shaped placeholder hall: floor, walls, altar, lamp shelves and cushions, drawn from the
- * layout the manifest describes.
- *
- * @param statueUrl - A model for the statue on the altar. The box is drawn instead when it is
- *   null, while the model downloads, and if it cannot be loaded.
+ * The warm hall is drawn from the manifest's layout, with a statue relief while a model is absent
+ * or downloading. Click targets and ritual positions are independent of the decoration.
  */
 export function BlockoutFurniture({
   layout,
@@ -93,59 +88,98 @@ export function BlockoutFurniture({
   statueUrl: string | null;
 }) {
   const { cushionRadius, cushionHeight } = BLOCKOUT;
-  const statueBox = <BoxMesh box={layout.statue} color={PALETTE.statue} />;
+  const statue = <BuddhaRelief statue={layout.statue} />;
   return (
     <group>
-      <ColourFloor layout={layout} />
+      <WoodFloor layout={layout} />
       {layout.walls.map((wall) => (
-        <BoxMesh key={`${wall.x}:${wall.z}`} box={wall} color={PALETTE.wall} />
+        <HallBox key={wall.x} box={wall} color={HALL_COLOURS.plaster} />
       ))}
-      <BoxMesh box={layout.altar} color={PALETTE.altar} />
+      <HallDetails layout={layout} />
+      <AltarCabinet box={layout.altar} />
+      {[-1, 1].map((side) => (
+        <Lantern
+          key={side}
+          x={layout.altar.x + side * layout.altar.width * ALTAR_LANTERN_OFFSET_SHARE}
+          y={layout.altar.height}
+          z={layout.altar.z}
+          lit
+        />
+      ))}
       {statueUrl === null ? (
-        statueBox
+        statue
       ) : (
         <ModelSlot
           url={statueUrl}
           position={[layout.statue.x, layout.altar.height, layout.statue.z]}
-          fallback={statueBox}
+          fallback={statue}
         />
       )}
       {layout.lampRacks.map((rack) => (
-        <BoxMesh key={`${rack.x}:${rack.z}`} box={rack} color={PALETTE.rack} />
+        <AltarCabinet key={rack.x} box={rack} />
       ))}
       {layout.cushions.map((cushion) => (
-        <mesh key={cushion.id} position={[cushion.x, cushionHeight / 2, cushion.z]}>
-          <cylinderGeometry
-            args={[cushionRadius, cushionRadius, cushionHeight, CYLINDER_SEGMENTS]}
-          />
-          <meshStandardMaterial color={PALETTE.cushion} />
-        </mesh>
+        <group key={cushion.id} position={[cushion.x, cushionHeight / 2, cushion.z]}>
+          <mesh>
+            <cylinderGeometry
+              args={[cushionRadius, cushionRadius, cushionHeight, CUSHION_SEGMENTS]}
+            />
+            <meshStandardMaterial color={HALL_COLOURS.cushionEdge} roughness={1} />
+          </mesh>
+          <mesh scale={[cushionRadius, cushionHeight, cushionRadius]}>
+            <sphereGeometry args={[1, CUSHION_SEGMENTS, CUSHION_SEGMENTS]} />
+            <meshStandardMaterial color={HALL_COLOURS.cushion} roughness={1} />
+          </mesh>
+        </group>
       ))}
     </group>
   );
 }
 
-/** The lamps, which are drawn from the manifest's lamp places whatever the hall looks like. A lit lamp glows. */
+/** Lit and unlit lanterns share a silhouette so ritual state stays visible from the entrance. */
+function Lantern({ x, y, z, lit }: { x: number; y: number; z: number; lit: boolean }) {
+  const { roof, base, paper, trim, glow } = LANTERN;
+  const height = BLOCKOUT.lampSize * 1.6;
+  return (
+    <group position={[x, y, z]}>
+      <mesh position={[0, trim / 2, 0]}>
+        <boxGeometry args={[base, trim, base]} />
+        <meshStandardMaterial color={HALL_COLOURS.lampWood} />
+      </mesh>
+      <mesh position={[0, trim + height / 2, 0]}>
+        <boxGeometry args={[paper, height, paper]} />
+        <meshStandardMaterial
+          color={lit ? HALL_COLOURS.lampLight : HALL_COLOURS.lampPaper}
+          emissive={HALL_COLOURS.lampLight}
+          emissiveIntensity={lit ? glow : 0}
+        />
+      </mesh>
+      <mesh position={[0, trim + height, 0]} rotation={[0, Math.PI / 4, 0]}>
+        <cylinderGeometry args={[roof / 3, roof / Math.SQRT2, trim * 2, 4]} />
+        <meshStandardMaterial color={HALL_COLOURS.lampWood} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Lamp slots remain visible for every temple model and only the ritual changes which ones glow. */
 export function Lamps({
   layout,
   litLamps,
 }: {
   layout: HallLayout;
-  /** The lamp places that have a lit lamp. */
   litLamps?: ReadonlySet<string> | undefined;
 }) {
-  const { lampSize, rackHeight } = BLOCKOUT;
   return (
     <>
       {layout.lampSlots.map((slot) => (
-        <mesh key={slot.id} position={[slot.x, rackHeight + lampSize, slot.z]}>
-          <sphereGeometry args={[lampSize, LAMP_SEGMENTS, LAMP_SEGMENTS]} />
-          <meshStandardMaterial
-            color={litLamps?.has(slot.id) ? PALETTE.litLamp : PALETTE.lamp}
-            emissive={litLamps?.has(slot.id) ? PALETTE.litLamp : '#000000'}
-            emissiveIntensity={litLamps?.has(slot.id) ? LIT_LAMP_GLOW : 0}
-          />
-        </mesh>
+        <Lantern
+          key={slot.id}
+          x={slot.x}
+          y={BLOCKOUT.rackHeight}
+          z={slot.z}
+          lit={litLamps?.has(slot.id) ?? false}
+        />
       ))}
     </>
   );

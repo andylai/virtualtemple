@@ -1,12 +1,10 @@
 import type { Catalog } from './en';
 
-/**
- * 简体中文 (Simplified Chinese, as used in Malaysia). A first draft that has not been reviewed by a
- * native speaker or by the temple's religious advisor: it stays off until the manifest lists `zh`
- * in `languages` (see plan section 20).
- */
+/** Simplified Chinese for the flagship's visitor interface. */
 export const zh = {
-  'app.title': '线上寺院',
+  'app.title': '安心',
+  'app.wordmark': '安 · 心',
+  'enter.tagline': '坐一会儿，诵一段经，慢慢呼吸。',
   'loading.preparing': '正在准备大殿…',
   'loading.progress': '加载中 {percent}%',
   'enter.button': '进入',
@@ -32,6 +30,7 @@ export const zh = {
   'toast.bow': '{name} 正在礼拜',
   'toast.lamp': '{name} 点了一盏灯',
   'toast.sit': '{name} 正在静坐',
+  'menu.more': '更多',
   'settings.button': '设置',
   'settings.title': '设置',
   'settings.backgroundPlay': '此标签页在后台时继续播放声音',
@@ -40,7 +39,8 @@ export const zh = {
   'settings.forget': '忘记我的名字和设置',
   'meditation.button': '静坐',
   'meditation.title': '静坐',
-  'meditation.choose': '您想静坐多久？',
+  'meditation.guide.relax': '放松身心。坐稳后，轻轻闭上眼睛。',
+  'meditation.guide.duration': '准备好后，选择静坐时长。静坐结束时会响起钟声。',
   'meditation.minutes': '{n} 分钟',
   'meditation.walking': '正在走向您的蒲团…',
   'meditation.left': '静坐中：剩余 {time}',
@@ -49,20 +49,30 @@ export const zh = {
   'about.button': '关于',
   'about.title': '关于本寺',
   'about.privacy': '无需账号。您的名字和设置只保存在这个浏览器中。',
-  'about.privacyLink': '隐私说明',
-  'about.termsLink': '使用条款',
+  'about.termsLink': '条款与隐私',
+  'terms.backToAbout': '返回关于',
+  'terms.loading': '正在加载使用条款…',
+  'terms.unavailable': '无法加载使用条款。',
   'about.credits': '致谢',
   'about.noCredits': '目前没有使用任何第三方的声音、图像或模型。',
   'exit.button': '离开',
   'exit.title': '休息得好吗？',
   'exit.body': '愿您在此找到的宁静常伴左右。',
   'exit.stayAgain': '再待一会儿',
-  'sound.ambient': '背景声音',
+  'sound.ambient': '背景音乐',
   'sound.chanting': '诵经',
   'sound.effects': '音效',
   'sound.playChanting': '播放诵经',
   'sound.stopChanting': '停止诵经',
-  'sound.communalNote': '正在共修诵经，您自己的诵经已暂停。',
+  'sound.communalNote': '正在共修诵经。共修结束后可继续选择个人诵经。',
+  'chanting.heartSutra': '心经',
+  'chanting.sixSyllable': '六字大明咒',
+  'chanting.greatCompassion': '大悲咒',
+  'chanting.tibetanPronunciation': '西藏發音',
+  'chanting.source': '来源',
+  'chanting.backToTracks': '返回诵经',
+  'chanting.heartSutraEnglishTime': '预计诵读时间：约 4–5 分钟',
+  'chanting.heartSutraChineseTime': '预计诵读时间：约 2–3 分半钟',
   'chanting.soon': '共修诵经即将开始',
   'chanting.live': '共修诵经：大家一同聆听',
   'specialDay.today': '今天：{name}',
@@ -91,6 +101,6 @@ export const zh = {
   'about.controlsBody':
     '行走：点击地面，或使用 W A S D 或方向键。合十问讯：3。礼拜：1、E 或空格键。点灯：L。',
   'hall.description':
-    '从上方俯视的寺院大殿，有佛台、蒲团和油灯。可使用页面底部的按钮来合十问讯、礼拜、点灯、静坐和打开设置。',
+    '从上方俯瞰的佛堂，设有坐姿佛像、坐垫和灯。仪式按钮在底部，其他操作在“更多”菜单中。',
   'error.webgl': '此浏览器无法显示 3D 大殿。请改用较新版本的 Chrome、Safari 或 Firefox。',
 } as const satisfies Catalog;

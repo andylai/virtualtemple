@@ -1,3 +1,4 @@
+import { HallIcon } from './HallIcon';
 import { useEffect, useState } from 'react';
 import { useT } from '../i18n/I18nProvider';
 
@@ -29,7 +30,10 @@ export function InviteButton({ hall }: { hall: number }) {
 
   return (
     <button type="button" onClick={() => void copy()}>
-      {feedback === 'copied' ? t('invite.copied') : t('invite.button')}
+      <HallIcon name="invite" />
+      <span aria-live="polite">
+        {feedback === 'copied' ? t('invite.copied') : t('invite.button')}
+      </span>
       {feedback === 'failed' && <span role="alert"> — {t('invite.failed')}</span>}
     </button>
   );
