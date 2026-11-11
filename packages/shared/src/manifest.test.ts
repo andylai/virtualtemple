@@ -93,6 +93,15 @@ describe('parseManifest', () => {
     expect(problemsOf({ ...base, hall, avatar: { model: 'models/avatar.glb' } })).toBe('');
   });
 
+  it('accepts chanting and sound effects with or without a recording, but needs the ambience', () => {
+    const sfx = { bell: 'audio/bell.opus', lamp: null };
+    expect(problemsOf({ ...base, audio: { ...base.audio, chanting: null, sfx } })).toBe('');
+    expect(
+      problemsOf({ ...base, audio: { ...base.audio, chanting: 'audio/chanting.m4a', sfx } }),
+    ).toBe('');
+    expect(problemsOf({ ...base, audio: { ...base.audio, ambient: null } })).not.toBe('');
+  });
+
   it('rejects an audio path that is not an audio file and an avatar that is not a model', () => {
     expect(problemsOf({ ...base, audio: { ...base.audio, ambient: 'audio/a.glb' } })).toContain(
       'must end with .opus',

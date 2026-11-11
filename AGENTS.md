@@ -135,3 +135,7 @@ docs/mvp/           intent, spec, plan, spikes
 - ADR-047 — The portrait welcome screen uses its own altar illustration, and the ritual dock wraps with larger labels — A portrait composition gives the altar room before entry without cropping the wide hall artwork. The live view still fits the whole hall and reserves the measured dock height for floor taps.
 
 - ADR-048 — The illustrated hall offers an optional Altar view in portrait — The closer view clips one enlarged stage so artwork, lamps, avatars and floor taps all share the same projection. Whole hall is the default and restores access to the side aisles (refines ADR-024 and ADR-045).
+
+- ADR-049 — Altar view slides sideways to keep the visitor's own avatar in sight — The closer view clips the side aisles, where visitors arrive, so a visitor could not see themself. The avatar reports where it is across the picture (`selfView.ts`) and the stage, still one element, moves only as far as needed and never past the artwork's edge (refines ADR-048).
+
+- ADR-050 — Chanting and sound-effect recordings may be null in the manifest, and a null one is never requested — The site answers unknown addresses with its home page, so naming a file that does not exist cost a request per sound on every visit. The placeholder sound plays directly; adding a recording is still one manifest line (refines ADR-026). The ambience stays required.

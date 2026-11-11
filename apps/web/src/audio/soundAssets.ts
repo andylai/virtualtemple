@@ -10,13 +10,17 @@ const AMBIENT_SECONDS = 48;
 const CHANT_SECONDS = 20;
 
 /**
- * Where a sound's recording is, as named in the manifest.
+ * Where a sound's recording is, as named in the manifest, or null when the temple has none yet.
  *
  * @param manifest - The temple's manifest.
  * @param name - Which sound.
  * @param baseUrl - Where the app's files are served from.
  */
-export function soundUrl(manifest: TempleManifest, name: SoundName, baseUrl: string): string {
+export function soundUrl(
+  manifest: TempleManifest,
+  name: SoundName,
+  baseUrl: string,
+): string | null {
   const { audio } = manifest;
   const path = {
     ambient: audio.ambient,
@@ -24,7 +28,7 @@ export function soundUrl(manifest: TempleManifest, name: SoundName, baseUrl: str
     bell: audio.sfx.bell,
     lamp: audio.sfx.lamp,
   }[name];
-  return assetUrl(path, baseUrl);
+  return path === null ? null : assetUrl(path, baseUrl);
 }
 
 function synthesise(name: SoundName): Float32Array<ArrayBuffer> {
@@ -55,23 +59,26 @@ export async function loadRecording(
 
 /**
  * Gets a sound as a buffer: the recording if there is one and it can be read, otherwise a
- * placeholder made in code. A missing file is normal for now, since the real recordings do not exist yet.
+ * placeholder made in code. With no address nothing is requested: asking for a file that does not
+ * exist costs a round trip, and this site answers unknown addresses with its home page.
  *
  * @param context - The audio context the buffer is for.
  * @param name - Which sound.
- * @param url - Where its recording should be.
+ * @param url - Where its recording is, or null when the manifest names none.
  * @param fetchFn - `fetch`, passed in so tests can replace it.
  */
 export async function loadSoundBuffer(
   context: AudioContext,
   name: SoundName,
-  url: string,
+  url: string | null,
   fetchFn: typeof fetch = fetch,
 ): Promise<AudioBuffer> {
-  try {
-    return await loadRecording(context, url, fetchFn);
-  } catch {
-    // Fall through to the placeholder.
+  if (url !== null) {
+    try {
+      return await loadRecording(context, url, fetchFn);
+    } catch {
+      // Fall through to the placeholder.
+    }
   }
   const samples = synthesise(name);
   const buffer = context.createBuffer(1, samples.length, SYNTH_RATE);

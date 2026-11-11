@@ -15,6 +15,7 @@ import {
   planStep,
   type HeldKeys,
 } from './movement';
+import { acrossView, reportSelfAcross } from './selfView';
 
 const MS_PER_SECOND = 1000;
 const DEGREES_TO_RADIANS = Math.PI / 180;
@@ -155,15 +156,17 @@ export function SelfAvatar(props: SelfAvatarProps) {
   });
   const held = useHeldKeys();
 
-  useFrame((_state, deltaSeconds) =>
+  useFrame(({ camera }, deltaSeconds) => {
     advance({
       ...props,
       motion: motion.current,
       held: held.current,
       group: group.current,
       deltaSeconds,
-    }),
-  );
+    });
+    // The closer view slides sideways to keep the visitor in sight (ADR-049).
+    reportSelfAcross(acrossView(motion.current.position, camera));
+  });
 
   return (
     <group ref={group} position={[start.x, AVATAR_BASE_Y, start.z]}>

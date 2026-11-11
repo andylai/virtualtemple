@@ -155,7 +155,7 @@
   },
   "audio": {
     "ambient": "audio/ambient.opus",
-    "chanting": "audio/chanting.opus",
+    "chanting": null,
     "personalChants": [
       {
         "id": "om-mani-padme-hum",
@@ -170,8 +170,8 @@
       }
     ],
     "sfx": {
-      "bell": "audio/bell.opus",
-      "lamp": "audio/lamp.opus"
+      "bell": null,
+      "lamp": null
     },
     "chantingDurationSec": 300
   },

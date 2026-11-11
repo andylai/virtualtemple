@@ -23,11 +23,31 @@ const audioResponse = () =>
   new Response(new ArrayBuffer(8), { status: 200, headers: { 'content-type': 'audio/ogg' } });
 
 describe('soundUrl', () => {
+  const withRecordings = {
+    ...flagshipManifest,
+    audio: {
+      ...flagshipManifest.audio,
+      chanting: 'audio/chanting.opus',
+      sfx: { bell: 'audio/bell.opus', lamp: 'audio/lamp.opus' },
+    },
+  };
+
   it('joins the base address and the manifest path for each sound', () => {
-    expect(soundUrl(flagshipManifest, 'ambient', '/')).toBe('/audio/ambient.opus');
-    expect(soundUrl(flagshipManifest, 'chanting', '/app/')).toBe('/app/audio/chanting.opus');
-    expect(soundUrl(flagshipManifest, 'bell', '/')).toBe('/audio/bell.opus');
-    expect(soundUrl(flagshipManifest, 'lamp', '/')).toBe('/audio/lamp.opus');
+    expect(soundUrl(withRecordings, 'ambient', '/')).toBe('/audio/ambient.opus');
+    expect(soundUrl(withRecordings, 'chanting', '/app/')).toBe('/app/audio/chanting.opus');
+    expect(soundUrl(withRecordings, 'bell', '/')).toBe('/audio/bell.opus');
+    expect(soundUrl(withRecordings, 'lamp', '/')).toBe('/audio/lamp.opus');
+  });
+
+  it('has no address for a sound the manifest has no recording of', () => {
+    const none = {
+      ...withRecordings,
+      audio: { ...withRecordings.audio, chanting: null, sfx: { bell: null, lamp: null } },
+    };
+    expect(soundUrl(none, 'chanting', '/')).toBeNull();
+    expect(soundUrl(none, 'bell', '/')).toBeNull();
+    expect(soundUrl(none, 'lamp', '/')).toBeNull();
+    expect(soundUrl(none, 'ambient', '/')).toBe('/audio/ambient.opus');
   });
 });
 
@@ -60,6 +80,17 @@ describe('loadSoundBuffer', () => {
     };
     expect(buffer.sampleRate).toBe(22050);
     expect(buffer.length).toBe(22050 * 20);
+    expect(copied).toHaveLength(1);
+  });
+
+  it('makes the placeholder without asking for anything when there is no recording', async () => {
+    const { context, copied } = fakeContext();
+    const fetchFn = vi.fn();
+    const buffer = (await loadSoundBuffer(context, 'bell', null, fetchFn)) as unknown as {
+      sampleRate: number;
+    };
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(buffer.sampleRate).toBe(22050);
     expect(copied).toHaveLength(1);
   });
 

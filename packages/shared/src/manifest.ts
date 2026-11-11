@@ -108,11 +108,12 @@ export const manifestSchema = z
     hall: hallSchema,
     audio: z.object({
       ambient: audioPath,
-      chanting: audioPath,
+      /** Null until the temple has a recording: the placeholder plays and nothing is requested. */
+      chanting: audioPath.nullable(),
       personalChants: z.array(personalChant).default([]),
       /** How long a communal chanting session lasts: the length of the chanting recording. */
       chantingDurationSec: z.number().int().positive(),
-      sfx: z.object({ bell: audioPath, lamp: audioPath }),
+      sfx: z.object({ bell: audioPath.nullable(), lamp: audioPath.nullable() }),
     }),
     /** The people. With no model they are coloured capsules. */
     avatar: z.object({ model: modelPath.nullable() }),

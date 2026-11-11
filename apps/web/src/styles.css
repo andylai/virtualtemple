@@ -578,6 +578,8 @@ button {
 .painted-stage {
   position: relative;
   width: min(var(--stage-width, 100cqw), calc(var(--stage-height, 100cqh) * var(--art-aspect)));
+  /* The closer view slides to keep the visitor's own avatar in sight; easing hides the steps. */
+  transition: translate 0.2s ease-out;
 }
 
 .painted-stage > img {
