@@ -49,12 +49,12 @@ describe('translate', () => {
   });
 
   it('falls back to English for a language without a catalog', () => {
-    expect(translate('ms', 'enter.button', {}, { en })).toBe('Enter');
+    expect(translate('ms', 'enter.button', {}, { en })).toBe(en['enter.button']);
   });
 
   it('uses the language asked for when it has a catalog', () => {
-    expect(translate('ms', 'enter.button')).toBe('Masuk');
-    expect(translate('zh', 'enter.button')).toBe('进入');
+    expect(translate('ms', 'enter.button')).toBe('Masuk ke dewan');
+    expect(translate('zh', 'enter.button')).toBe('进入佛堂');
   });
 });
 

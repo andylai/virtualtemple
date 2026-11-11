@@ -47,6 +47,8 @@ const STAND_IN_SEED = 20261101;
 
 interface HallSceneProps {
   layout: HallLayout;
+  /** Only admitted visitors can switch between live hall views. */
+  joined: boolean;
   /** How many stand-in avatars to draw (0 for none). */
   standIns: number;
   /** Called once the WebGL context exists. */
@@ -115,6 +117,7 @@ function ContextWatch({ onLost }: { onLost: (lost: boolean) => void }) {
 /** The 3D canvas: the placeholder hall, lights, a fixed camera, and optional stand-ins. */
 export function HallScene({
   layout,
+  joined,
   standIns,
   onReady,
   onPictureLost,
@@ -165,7 +168,7 @@ export function HallScene({
     </Canvas>
   );
   return painted ? (
-    <PaintedStage litLamps={litLamps} onArtworkError={() => setArtworkFailed(true)}>
+    <PaintedStage joined={joined} litLamps={litLamps} onArtworkError={() => setArtworkFailed(true)}>
       {canvas}
     </PaintedStage>
   ) : (

@@ -162,6 +162,7 @@ function HallView({ client }: { client: HallClient }) {
     <>
       <HallScene
         layout={layout}
+        joined={state.status === 'joined'}
         standIns={flags.stress}
         onReady={() => setSceneReady(true)}
         onPictureLost={setPictureLost}

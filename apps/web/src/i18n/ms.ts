@@ -10,7 +10,7 @@ export const ms = {
   'enter.tagline': 'Ruang tenang untuk duduk, melafazkan sutra dan bernafas.',
   'loading.preparing': 'Menyediakan dewan…',
   'loading.progress': 'Memuatkan {percent}%',
-  'enter.button': 'Masuk',
+  'enter.button': 'Masuk ke dewan',
   'enter.hint': 'Bunyi akan bermula apabila anda masuk.',
   'status.connecting': 'Memasuki dewan…',
   'status.reconnecting': 'Sambungan terputus. Menyambung semula…',
@@ -108,6 +108,9 @@ export const ms = {
   'about.controls': 'Kawalan',
   'about.controlsBody':
     'Berjalan: ketik atau klik lantai, atau guna W A S D atau kekunci anak panah. Beri salam: 3. Tunduk hormat: 1, E atau Space. Nyalakan pelita: L.',
+  'hall.view': 'Pandangan dewan',
+  'hall.viewWhole': 'Seluruh dewan',
+  'hall.viewAltar': 'Pandangan altar',
   'hall.description':
     'Dewan kuil dilihat dari atas, dengan patung Buddha duduk, kusyen dan pelita. Butang upacara berada di bawah dan kawalan lain dalam menu Lagi.',
   'error.webgl':

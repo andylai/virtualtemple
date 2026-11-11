@@ -9,7 +9,7 @@ export const en = {
   'enter.tagline': 'A quiet place to sit, chant, and breathe.',
   'loading.preparing': 'Preparing the hall…',
   'loading.progress': 'Loading {percent}%',
-  'enter.button': 'Enter',
+  'enter.button': 'Enter the hall',
   'enter.hint': 'Sound will start when you enter.',
   'status.connecting': 'Joining the hall…',
   'status.reconnecting': 'Connection lost. Reconnecting…',
@@ -105,6 +105,9 @@ export const en = {
   'about.controls': 'Controls',
   'about.controlsBody':
     'Walk: tap or click the floor, or use W A S D or the arrow keys. Greet: 3. Bow: 1, E or Space. Light a lamp: L.',
+  'hall.view': 'Hall view',
+  'hall.viewWhole': 'Whole hall',
+  'hall.viewAltar': 'Altar view',
   'hall.description':
     'A temple hall seen from above, with a seated Buddha, cushions and lamps. The rituals are at the bottom and other controls are in More.',
   'error.webgl':

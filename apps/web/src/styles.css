@@ -84,6 +84,10 @@ button {
   line-height: 1.5;
 }
 
+.welcome-art {
+  display: none;
+}
+
 .overlay-card button {
   min-height: 44px;
   padding: 12px 40px;
@@ -557,13 +561,23 @@ button {
   position: absolute;
   inset: calc(72px + env(safe-area-inset-top)) 0 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
   place-items: center;
   container-type: size;
 }
 
+.painted-stage-frame {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  width: 100%;
+  overflow: clip;
+}
+
 .painted-stage {
   position: relative;
-  width: min(100cqw, calc(100cqh * var(--art-aspect)));
+  width: min(var(--stage-width, 100cqw), calc(var(--stage-height, 100cqh) * var(--art-aspect)));
 }
 
 .painted-stage > img {
@@ -584,4 +598,124 @@ button {
   box-shadow: 0 0 5px 1px #d08e494f;
   mix-blend-mode: screen;
   pointer-events: none;
+}
+
+.hall-view-options {
+  display: none;
+}
+
+@media (max-width: 600px) and (orientation: portrait) {
+  .painted-stage-space:has(.hall-view-options) {
+    --hall-view-target: 44px;
+    --hall-view-gap: 12px;
+    --stage-height: calc(100cqh - var(--hall-view-target) - var(--hall-view-gap));
+    row-gap: var(--hall-view-gap);
+  }
+
+  .painted-stage[data-altar-view='true'] {
+    --stage-width: 145cqw;
+  }
+
+  .hall-view-options {
+    display: flex;
+    background: var(--temple-surface);
+    border-radius: 24px;
+    box-shadow: inset 0 0 0 1px var(--temple-line);
+  }
+
+  .hall-view-options button {
+    min-height: var(--hall-view-target);
+    padding: 6px 16px;
+    border: 1px solid transparent;
+    border-radius: inherit;
+    color: var(--temple-muted);
+    background: transparent;
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+
+  .hall-view-options button:hover {
+    color: var(--temple-text);
+    background: var(--temple-hover);
+  }
+
+  .hall-view-options button[aria-pressed='true'] {
+    border-color: var(--temple-line);
+    color: var(--temple-text);
+    background: var(--temple-hover);
+  }
+
+  .welcome-overlay {
+    align-items: stretch;
+    padding: 0 0 max(16px, env(safe-area-inset-bottom));
+    background: #1d130d;
+  }
+
+  .welcome-overlay .overlay-card {
+    --welcome-gutter-left: max(20px, env(safe-area-inset-left));
+    --welcome-gutter-right: max(20px, env(safe-area-inset-right));
+    display: grid;
+    grid-template-columns:
+      minmax(var(--welcome-gutter-left), 1fr) minmax(0, 440px)
+      minmax(var(--welcome-gutter-right), 1fr);
+    align-content: start;
+    max-width: none;
+  }
+
+  .welcome-overlay .overlay-card > * {
+    grid-column: 2;
+  }
+
+  .welcome-overlay .overlay-card > .welcome-art {
+    display: block;
+    grid-column: 1 / -1;
+    height: min(125vw, 57svh);
+    margin-bottom: 18px;
+  }
+
+  .welcome-art img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* The portrait fills both edges. Only the shadow at the foot of the image fades. */
+    mask-image: linear-gradient(#000 83%, transparent);
+  }
+
+  .welcome-overlay h1 {
+    margin-bottom: 8px;
+    font-size: clamp(2rem, 10vw, 3rem);
+    line-height: 1.08;
+  }
+
+  .welcome-overlay .welcome-tagline {
+    margin-bottom: 18px;
+  }
+
+  .overlay-card .welcome-enter {
+    width: 100%;
+    min-height: 50px;
+  }
+
+  /* Keep the focus ring inside the scrollable card. */
+  .overlay-card .welcome-enter:focus-visible {
+    outline-color: var(--temple-deep);
+    outline-offset: -5px;
+  }
+
+  .welcome-sound {
+    margin: 12px 0 0;
+    color: var(--temple-muted);
+    font-size: 0.875rem;
+  }
+
+  .ritual-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ritual-bar > button {
+    flex: 1 1 28%;
+    font-size: 0.875rem;
+  }
 }

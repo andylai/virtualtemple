@@ -7,7 +7,7 @@ export const zh = {
   'enter.tagline': '坐一会儿，诵一段经，慢慢呼吸。',
   'loading.preparing': '正在准备大殿…',
   'loading.progress': '加载中 {percent}%',
-  'enter.button': '进入',
+  'enter.button': '进入佛堂',
   'enter.hint': '进入后将开始播放声音。',
   'status.connecting': '正在进入大殿…',
   'status.reconnecting': '连接中断，正在重新连接…',
@@ -100,6 +100,9 @@ export const zh = {
   'about.controls': '操作方式',
   'about.controlsBody':
     '行走：点击地面，或使用 W A S D 或方向键。合十问讯：3。礼拜：1、E 或空格键。点灯：L。',
+  'hall.view': '佛堂视角',
+  'hall.viewWhole': '佛堂全景',
+  'hall.viewAltar': '佛坛近景',
   'hall.description':
     '从上方俯瞰的佛堂，设有坐姿佛像、坐垫和灯。仪式按钮在底部，其他操作在“更多”菜单中。',
   'error.webgl': '此浏览器无法显示 3D 大殿。请改用较新版本的 Chrome、Safari 或 Firefox。',

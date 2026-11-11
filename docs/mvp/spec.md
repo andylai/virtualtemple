@@ -73,7 +73,8 @@ Visitors see halls named "Hall 1", "Hall 2" and so on, with a count of people. T
 - FR-10: "Invite a friend" copies a link to the current hall. If that hall is full when the friend opens it, FR-7 applies.
 
 ### 3.3 Movement
-- FR-11: Click or tap to walk to a point; WASD and arrow keys on desktop (up and W walk towards the altar). The camera is fixed: one view that shows the whole hall, centred, and the visitor cannot rotate or zoom it. On a tall phone screen the camera sits further back so the whole hall still fits, and the view is fitted again when the screen shape changes. (Decision 2026-11-01; Sansa lets visitors orbit, but a fixed view keeps the hall always centred, avoids a tap being mistaken for a drag on phones, and means art only has to be made for one side.)
+- FR-11: Click or tap to walk to a point; WASD and arrow keys on desktop (up and W walk towards the altar). The camera angle is fixed and the default view centres the whole hall. The view is fitted again when the screen shape changes. Visitors cannot freely rotate or zoom. The fixed view keeps a tap from being mistaken for a drag and means art only has to be made for one side.
+- FR-11a: On narrow portrait screens, visitors in the illustrated flagship hall can switch between Whole hall (the default) and Altar view (a closer, centred crop). Whole hall makes the side aisles visible again. The same fixed camera aligns artwork, people, lamps and floor taps in both views.
 - FR-12: Movement is clamped to a walkable area defined in the hall template. The server rejects positions outside it.
 - FR-13: The client sends its own position at a limited rate (`net.positionSendHz`, proposed default 8) and only when it has changed.
 - FR-14: The server broadcasts a batched snapshot of all moved players at `net.snapshotHz` (proposed default 8).

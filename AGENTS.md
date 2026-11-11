@@ -131,3 +131,7 @@ docs/mvp/           intent, spec, plan, spikes
 - ADR-045 — The flagship's fixed view uses the approved hall artwork behind the live 3D avatars — One calibrated camera keeps taps, visitors and cushion positions aligned with the illustration at every screen size. The opaque scene avoids cutout edges on the Buddha. Lanterns are painted unlit, and a soft highlight lights the permanent altar pair and active ritual lamps at their matching artwork positions. Manifest art overrides and the fallback geometry keep their existing path.
 
 - ADR-046 — Personal recitations are named recordings in the manifest and share the existing chanting audio layer — A track can be listed before its recording is available, but playback requires a recording with attribution and never substitutes a synthetic hum. The dock shortcut owns personal playback; the same audio engine fades the background and gives scheduled communal chanting priority.
+
+- ADR-047 — The portrait welcome screen uses its own altar illustration, and the ritual dock wraps with larger labels — A portrait composition gives the altar room before entry without cropping the wide hall artwork. The live view still fits the whole hall and reserves the measured dock height for floor taps.
+
+- ADR-048 — The illustrated hall offers an optional Altar view in portrait — The closer view clips one enlarged stage so artwork, lamps, avatars and floor taps all share the same projection. Whole hall is the default and restores access to the side aisles (refines ADR-024 and ADR-045).
