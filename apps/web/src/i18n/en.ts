@@ -107,7 +107,7 @@ export const en = {
     'Walk: tap or click the floor, or use W A S D or the arrow keys. Greet: 3. Bow: 1, E or Space. Light a lamp: L.',
   'hall.view': 'Hall view',
   'hall.viewWhole': 'Whole hall',
-  'hall.viewAltar': 'Altar view',
+  'hall.viewClose': 'Close view',
   'hall.description':
     'A temple hall seen from above, with a seated Buddha, cushions and lamps. The rituals are at the bottom and other controls are in More.',
   'error.webgl':

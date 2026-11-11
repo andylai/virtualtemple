@@ -614,8 +614,9 @@ button {
     row-gap: var(--hall-view-gap);
   }
 
-  .painted-stage[data-altar-view='true'] {
-    --stage-width: 145cqw;
+  /* Twice the screen's width, or less on a short screen where the height runs out first (ADR-051). */
+  .painted-stage[data-close-view='true'] {
+    --stage-width: 200cqw;
   }
 
   .hall-view-options {

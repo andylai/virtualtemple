@@ -110,7 +110,7 @@ export const ms = {
     'Berjalan: ketik atau klik lantai, atau guna W A S D atau kekunci anak panah. Beri salam: 3. Tunduk hormat: 1, E atau Space. Nyalakan pelita: L.',
   'hall.view': 'Pandangan dewan',
   'hall.viewWhole': 'Seluruh dewan',
-  'hall.viewAltar': 'Pandangan altar',
+  'hall.viewClose': 'Pandangan dekat',
   'hall.description':
     'Dewan kuil dilihat dari atas, dengan patung Buddha duduk, kusyen dan pelita. Butang upacara berada di bawah dan kawalan lain dalam menu Lagi.',
   'error.webgl':

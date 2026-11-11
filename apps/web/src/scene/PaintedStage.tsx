@@ -56,10 +56,10 @@ export function PaintedStage({
 }) {
   const dockHeight = useDockHeight();
   const t = useT();
-  const [altarView, setAltarView] = useState(false);
+  const [closeView, setCloseView] = useState(false);
   const { artwork, width, height, lamps, altarLamps } = FLAGSHIP_VIEW;
   const stageStyle = { '--art-aspect': width / height } as CSSProperties;
-  const stage = useSlideToSelf(joined && altarView);
+  const stage = useSlideToSelf(joined && closeView);
   return (
     <div className="painted-stage-space" style={{ bottom: dockHeight || DOCK_ESTIMATE_PX }}>
       <div className="painted-stage-frame">
@@ -67,7 +67,7 @@ export function PaintedStage({
           className="painted-stage"
           ref={stage}
           style={stageStyle}
-          data-altar-view={joined && altarView}
+          data-close-view={joined && closeView}
         >
           <img src={artwork} width={width} height={height} alt="" onError={onArtworkError} />
           {[
@@ -86,11 +86,11 @@ export function PaintedStage({
       </div>
       {joined && (
         <div className="hall-view-options" role="group" aria-label={t('hall.view')}>
-          <button type="button" aria-pressed={!altarView} onClick={() => setAltarView(false)}>
+          <button type="button" aria-pressed={!closeView} onClick={() => setCloseView(false)}>
             {t('hall.viewWhole')}
           </button>
-          <button type="button" aria-pressed={altarView} onClick={() => setAltarView(true)}>
-            {t('hall.viewAltar')}
+          <button type="button" aria-pressed={closeView} onClick={() => setCloseView(true)}>
+            {t('hall.viewClose')}
           </button>
         </div>
       )}

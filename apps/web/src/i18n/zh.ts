@@ -102,7 +102,7 @@ export const zh = {
     '行走：点击地面，或使用 W A S D 或方向键。合十问讯：3。礼拜：1、E 或空格键。点灯：L。',
   'hall.view': '佛堂视角',
   'hall.viewWhole': '佛堂全景',
-  'hall.viewAltar': '佛坛近景',
+  'hall.viewClose': '近景',
   'hall.description':
     '从上方俯瞰的佛堂，设有坐姿佛像、坐垫和灯。仪式按钮在底部，其他操作在“更多”菜单中。',
   'error.webgl': '此浏览器无法显示 3D 大殿。请改用较新版本的 Chrome、Safari 或 Firefox。',
